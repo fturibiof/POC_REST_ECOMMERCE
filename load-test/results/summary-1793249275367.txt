@@ -1,0 +1,39 @@
+
+╔══════════════════════════════════════════════════════════════╗
+║           POC E-Commerce — k6 Load Test Summary              ║
+╚══════════════════════════════════════════════════════════════╝
+
+  Profile            : 0→100 req/s (warm-up 30s) → hold 100 req/s (2min)
+                       → ramp 100→500 req/s (30s) → hold 500 req/s (1.5min)
+                       → cool-down (30s)  |  Total: 5 min
+  Total iterations   : 57999
+  VUs (peak)         : 600
+
+── Throughput ─────────────────────────────────────────────────
+  Requests/sec       : 193.19 req/s
+  Successful orders  : 46359
+  Payment declines   : 5725  (intentional)
+  Inventory failures : 5915  (intentional bad-SKU)
+  Stock exhausted    : 0  (unintended — restart services to reset)
+
+── Latency — all requests (http_req_duration) ─────────────────
+  min                : 201ms
+  avg                : 1335ms
+  p50                : 1708ms
+  p90                : 2047ms
+  p95                : 2097ms
+  p99                : 2327ms
+  max                : 3801ms
+
+── Latency — happy-path only (order_service_latency, latencyMs) 
+  min                : 504ms
+  avg                : 1291ms
+  p50                : 1650ms
+  p95                : 1807ms
+  p99                : 1992ms
+  max                : 3511ms
+
+── Error rates ────────────────────────────────────────────────
+  Unintended errors  : 0.0%   (threshold: <5%)
+  Raw HTTP failures  : 20.1%  (includes intentional 4xx)
+

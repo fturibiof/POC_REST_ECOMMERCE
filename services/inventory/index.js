@@ -20,13 +20,15 @@ const PORT = 3002;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const SIMULATED_DELAY_MS = 100;
 
-// Simulated stock — keyed by itemId
+// Simulated stock — keyed by itemId.
+// Quantities are set high enough to survive a full 5-min load test at
+// 500 req/s without exhaustion (real stock management is out of scope for POC).
 const stock = {
-  'ITEM-001': { name: 'Laptop',     quantity: 10 },
-  'ITEM-002': { name: 'Mouse',      quantity: 50 },
-  'ITEM-003': { name: 'Keyboard',   quantity: 30 },
-  'ITEM-004': { name: 'Monitor',    quantity: 5  },
-  'ITEM-005': { name: 'Headphones', quantity: 20 },
+  'ITEM-001': { name: 'Laptop',     quantity: 999_999 },
+  'ITEM-002': { name: 'Mouse',      quantity: 999_999 },
+  'ITEM-003': { name: 'Keyboard',   quantity: 999_999 },
+  'ITEM-004': { name: 'Monitor',    quantity: 999_999 },
+  'ITEM-005': { name: 'Headphones', quantity: 999_999 },
 };
 
 // In-memory list of active reservations

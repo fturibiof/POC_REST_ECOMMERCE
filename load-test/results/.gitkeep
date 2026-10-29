@@ -1,0 +1,3 @@
+This directory is auto-populated by k6 when you use --out json=... or the handleSummary hook.
+
+Each run writes a timestamped summary-<epoch>.txt file here.

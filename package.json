@@ -8,7 +8,9 @@
     "start:payment":      "node services/payment/index.js",
     "start:inventory":    "node services/inventory/index.js",
     "start:shipping":     "node services/shipping/index.js",
-    "start:notification": "node services/notification/index.js"
+    "start:notification": "node services/notification/index.js",
+    "load-test":          "k6 run load-test/k6-load-test.js",
+    "load-test:json":     "k6 run --out json=load-test/results/run.json load-test/k6-load-test.js"
   },
   "dependencies": {
     "axios": "^1.7.2",
