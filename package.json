@@ -1,0 +1,20 @@
+{
+  "name": "poc-rest-ecommerce",
+  "version": "1.0.0",
+  "description": "POC e-commerce microservices communicating via REST",
+  "scripts": {
+    "start": "concurrently \"npm run start:notification\" \"npm run start:inventory\" \"npm run start:payment\" \"npm run start:shipping\" \"npm run start:order\"",
+    "start:order":        "node services/order/index.js",
+    "start:payment":      "node services/payment/index.js",
+    "start:inventory":    "node services/inventory/index.js",
+    "start:shipping":     "node services/shipping/index.js",
+    "start:notification": "node services/notification/index.js"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
