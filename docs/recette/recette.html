@@ -1,0 +1,469 @@
+<title>Recette PoC Commandes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a lab notebook — header with the run context, sticky tabs per deliverable,
+   one column of scenario cards, each with its "how to" and the team's marks. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --sunken: #eef1f4;
+  --ink: #18212b;
+  --muted: #5a6573;
+  --line: #d9dfe5;
+  --accent: #1d6a86;
+  --accent-soft: #e2eff4;
+  --opt-a: #b5621a;
+  --opt-b: #6448ad;
+  --opt-c: #1b8068;
+  --ok: #2c7a4b;
+  --ko: #b02a22;
+  --blocked: #9a6400;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --surface: #19212a; --sunken: #141b22; --ink: #e4e9ee; --muted: #9aa6b3; --line: #2c3742;
+    --accent: #5fb3d1; --accent-soft: #1b3440; --opt-a: #e09552; --opt-b: #a48ff0; --opt-c: #4fc2a2;
+    --ok: #5cc287; --ko: #ef6f66; --blocked: #e0aa45; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --surface: #19212a; --sunken: #141b22; --ink: #e4e9ee; --muted: #9aa6b3; --line: #2c3742;
+  --accent: #5fb3d1; --accent-soft: #1b3440; --opt-a: #e09552; --opt-b: #a48ff0; --opt-c: #4fc2a2;
+  --ok: #5cc287; --ko: #ef6f66; --blocked: #e0aa45; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--font-body); }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+code { background: var(--sunken); padding: 0.1em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.25; margin: 0; }
+a { color: var(--accent); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header.top { background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { padding-block: 20px 14px; display: grid; gap: 6px; }
+.eyebrow { font: 500 12px/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+header.top h1 { font-size: 26px; font-weight: 600; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 13px; }
+
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+nav.tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+nav.tabs .wrap { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: thin; }
+nav.tabs a { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 12px 10px; text-decoration: none; color: var(--muted); border-bottom: 2px solid transparent; font-weight: 500; font-size: 14px; white-space: nowrap; }
+nav.tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.count { font: 500 11px/1 var(--font-mono); padding: 3px 6px; border-radius: 99px; background: var(--sunken); color: var(--muted); }
+
+main .wrap { padding-block: 24px 64px; display: grid; gap: 18px; }
+.lead { max-width: 75ch; color: var(--muted); }
+.lead strong { color: var(--ink); }
+.section-head { display: grid; gap: 8px; }
+.section-head h2 { font-size: 20px; font-weight: 600; }
+
+.progress { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1 var(--font-mono); padding: 5px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
+.s-ok .dot, .dot.s-ok { background: var(--ok); }
+.s-ko .dot, .dot.s-ko { background: var(--ko); }
+.s-blocked .dot, .dot.s-blocked { background: var(--blocked); }
+
+.banner { border: 1px solid var(--line); border-left: 4px solid var(--blocked); background: var(--surface); padding: 12px 14px; border-radius: var(--radius); max-width: 90ch; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); }
+.card > .body { padding: 16px 18px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+.card > .review { padding: 16px 18px; border-left: 1px solid var(--line); background: var(--sunken); display: grid; gap: 10px; align-content: start; min-width: 0; }
+@media (max-width: 760px) { .card { grid-template-columns: minmax(0, 1fr); } .card > .review { border-left: 0; border-top: 1px solid var(--line); } }
+.card-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.card-title .id { font: 600 14px/1 var(--font-mono); color: var(--accent); }
+.card-title h3 { font-size: 16px; font-weight: 600; }
+.tag { font: 500 11px/1 var(--font-mono); letter-spacing: 0.04em; color: var(--muted); border: 1px solid var(--line); padding: 3px 6px; border-radius: 4px; }
+dl.fields { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 6px 12px; margin: 0; }
+dl.fields dt { color: var(--muted); font-size: 13px; }
+dl.fields dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) { dl.fields { grid-template-columns: minmax(0, 1fr); } dl.fields dd { margin-bottom: 6px; } }
+
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.shot { display: grid; gap: 4px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: var(--sunken); cursor: zoom-in; text-align: left; overflow: hidden; }
+.shot img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; }
+.shot span { font-size: 11px; color: var(--muted); padding: 2px 6px 6px; line-height: 1.35; }
+
+.review h4 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.choices { display: flex; gap: 6px; flex-wrap: wrap; }
+.choice { border: 1px solid var(--line); background: var(--surface); padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; display: inline-flex; gap: 6px; align-items: center; }
+.choice[aria-pressed="true"].s-ok { border-color: var(--ok); color: var(--ok); }
+.choice[aria-pressed="true"].s-ko { border-color: var(--ko); color: var(--ko); }
+.choice[aria-pressed="true"].s-blocked { border-color: var(--blocked); color: var(--blocked); }
+.review textarea { width: 100%; min-height: 64px; resize: vertical; font: 14px/1.4 var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 8px; }
+.save { justify-self: start; background: var(--accent); color: var(--surface); border: 0; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 13px; }
+.save:disabled { opacity: 0.5; cursor: default; }
+.note { font-size: 12px; color: var(--muted); }
+.marks { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.mark { display: grid; gap: 2px; font-size: 13px; }
+.mark .who { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-weight: 500; }
+.mark .when { color: var(--muted); font-weight: 400; font-size: 12px; }
+.mark .stale { color: var(--blocked); font-size: 12px; }
+.mark p { margin: 0; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font-weight: 600; color: var(--muted); font-size: 12px; background: var(--sunken); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); white-space: nowrap; }
+td .range { display: block; color: var(--muted); font-size: 11px; }
+.opt { font: 600 12px/1 var(--font-mono); }
+.opt-A { color: var(--opt-a); } .opt-B { color: var(--opt-b); } .opt-C { color: var(--opt-c); }
+.hyp { color: var(--muted); font-size: 12px; }
+.gallery { display: grid; gap: 12px; }
+.gallery h4 { margin: 0; font-size: 13px; }
+
+dialog { border: 1px solid var(--line); border-radius: var(--radius); padding: 0; background: var(--surface); color: var(--ink); max-width: min(96vw, 1600px); }
+dialog::backdrop { background: rgb(0 0 0 / 0.6); }
+dialog img { display: block; max-width: 100%; max-height: 82vh; }
+dialog .cap { padding: 8px 12px; font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+dialog button { border: 1px solid var(--line); background: var(--surface); padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+@media (prefers-reduced-motion: no-preference) { nav.tabs a, .choice { transition: color 120ms, border-color 120ms; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <span class="eyebrow">MGL870 · PoC 1 · revue d’équipe</span>
+    <h1>Synchrone, événementiel ou hybride ?</h1>
+    <div class="meta" id="meta"></div>
+  </div>
+</header>
+<nav class="tabs" aria-label="Livrables"><div class="wrap" id="tabs"></div></nav>
+<main><div class="wrap" id="view"></div></main>
+<dialog id="zoom"><img id="zoom-img" alt=""><div class="cap"><span id="zoom-cap"></span><button id="zoom-close" type="button">Fermer</button></div></dialog>
+
+<script>
+const DATA = {"generatedAt":"2026-11-03T02:45:50.200Z","commit":"c5837c7","deliverables":[{"tab":"socle","code":"SOC","title":"SOC — Socle (E3)","intro":"","items":[{"id":"SOC-1","rev":1,"objective":"O3","how":"\u003ccode>OPTION=A docker compose up -d\u003c/code> puis \u003ccode>docker compose ps\u003c/code>","expected":"les 5 services et la supervision sont \u003ccode>running\u003c/code>","shots":[]},{"id":"SOC-2","rev":1,"objective":"O4","how":"Prometheus, page *Targets*","expected":"les 5 services et cAdvisor sont \u003ccode>UP\u003c/code>","shots":[]},{"id":"SOC-3","rev":1,"objective":"O4","how":"Grafana \u003ccode>localhost:3300\u003c/code>, tableau de bord PoC","expected":"filtres option, scénario, passage présents ; panneaux sans erreur","shots":[{"file":"RES-S1-B-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-211122-B-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"}]}]},{"tab":"option-a","code":"A","title":"A — Option A, synchrone (E4)","intro":"","items":[{"id":"A-1","rev":1,"objective":"O2","how":"commande valide (\u003ccode>curl\u003c/code> du README)","expected":"201, statut \u003ccode>CONFIRMED\u003c/code>, paiement, réservation, expédition, notification présents","shots":[]},{"id":"A-2","rev":1,"objective":"O5","how":"carte se terminant par \u003ccode>0000\u003c/code>","expected":"402 ; aucune réservation de stock","shots":[]},{"id":"A-3","rev":1,"objective":"O5","how":"article en rupture","expected":"409 ; le paiement est \u003cstrong>remboursé\u003c/strong> (audit)","shots":[]},{"id":"A-4","rev":1,"objective":"O2","how":"Payment lent : \u003ccode>POST :3001/admin/fault {\"delayMs\":2000,\"durationS\":60}\u003c/code> puis une commande","expected":"réponse en plus de 2 s ; retour à la normale après 60 s ; panneau « panne » visible dans Grafana","shots":[{"file":"RES-S3-A-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-212333-A-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-A-02-latence-d-acceptation-premiere-reponse.jpg","legend":"Latence d'acceptation (première réponse) — passage 20261102-212333-A-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-A-03-latence-de-completion-commandes-confirme.jpg","legend":"Latence de complétion (commandes confirmées) — passage 20261102-212333-A-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-A-04-pool-http-d-order-par-service-appele-a-c.jpg","legend":"Pool HTTP d’Order par service appelé (A, C) — passage 20261102-212333-A-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-A-05-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-212333-A-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-A-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 5f799bfce2840ab31c4923f4e1207c31 — passage 20261102-212333-A-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"}]},{"id":"A-5","rev":1,"objective":"O2","how":"Payment indisponible : \u003ccode>{\"down\":true,\"durationS\":30}\u003c/code> puis une commande","expected":"503 immédiat ; aucune commande confirmée pendant la panne","shots":[{"file":"RES-S4-A-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-212818-A-S4-r1 (médiane de 1 sur recoveryS), commit bdba9d2"},{"file":"RES-S4-A-02-commandes-envoyees-et-reponses-par-statu.jpg","legend":"Commandes envoyées et réponses par statut (/s) — passage 20261102-212818-A-S4-r1 (médiane de 1 sur recoveryS), commit bdba9d2"},{"file":"RES-S4-A-03-commandes-en-cours-travail-accumule.jpg","legend":"Commandes en cours (travail accumulé) — passage 20261102-212818-A-S4-r1 (médiane de 1 sur recoveryS), commit bdba9d2"},{"file":"RES-S4-A-04-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-212818-A-S4-r1 (médiane de 1 sur recoveryS), commit bdba9d2"},{"file":"RES-S4-A-05-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 08e45138dfb0ee09e95424783afc3b51 — passage 20261102-212818-A-S4-r1 (médiane de 1 sur recoveryS), commit bdba9d2"}]}]},{"tab":"option-b","code":"B","title":"B — Option B, événementielle (E5, E6)","intro":"","items":[{"id":"B-1","rev":1,"objective":"O2","how":"\u003ccode>OPTION=B\u003c/code>, commande valide, puis \u003ccode>GET /orders/&lt;id&gt;\u003c/code>","expected":"202 \u003ccode>PENDING\u003c/code>, puis \u003ccode>CONFIRMED\u003c/code> ; événements dans l'ordre \u003ccode>OrderCreated → PaymentAuthorized → InventoryReserved → ShipmentRequested → OrderConfirmed\u003c/code>","shots":[]},{"id":"B-2","rev":1,"objective":"O5","how":"carte refusée","expected":"202, puis \u003ccode>REJECTED\u003c/code> ; notification de rejet envoyée ; aucune réservation","shots":[]},{"id":"B-3","rev":1,"objective":"O5","how":"article en rupture","expected":"202, puis \u003ccode>REJECTED\u003c/code> ; paiement \u003cstrong>remboursé\u003c/strong>","shots":[]},{"id":"B-4","rev":1,"objective":"O2","how":"Payment indisponible 30 s pendant un envoi continu","expected":"commandes toujours acceptées (202) ; la file \u003ccode>payment\u003c/code> grossit puis se vide ; toutes finissent confirmées ou rejetées","shots":[{"file":"RES-S4-B-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-212951-B-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4-B-02-commandes-envoyees-et-reponses-par-statu.jpg","legend":"Commandes envoyées et réponses par statut (/s) — passage 20261102-212951-B-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4-B-03-commandes-en-cours-travail-accumule.jpg","legend":"Commandes en cours (travail accumulé) — passage 20261102-212951-B-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4-B-04-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-212951-B-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4-B-05-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 156454ff46f00b4be32dab491682b678 — passage 20261102-212951-B-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"}]},{"id":"B-5","rev":1,"objective":"O5","how":"\u003ccode>IDEMPOTENCY=off DUPLICATE_RATE=0.1\u003c/code>, quelques dizaines de commandes, audit","expected":"doubles paiements, réservations ou notifications \u003cstrong>détectés\u003c/strong> par l'audit","shots":[{"file":"RES-S5-off-B-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-213750-B-S5-off-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"},{"file":"RES-S5-off-B-02-doublons-injectes-et-ignores-s.jpg","legend":"Doublons injectés et ignorés (/s) — passage 20261102-213750-B-S5-off-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"},{"file":"RES-S5-off-B-03-registre-d-idempotence-identifiants-gard.jpg","legend":"Registre d’idempotence (identifiants gardés) — passage 20261102-213750-B-S5-off-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"},{"file":"RES-S5-off-B-04-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 11df7ae25aa37d9c7d39b45af9588534 — passage 20261102-213750-B-S5-off-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"}]},{"id":"B-6","rev":1,"objective":"O5","how":"même chose avec \u003ccode>IDEMPOTENCY=on\u003c/code>","expected":"0 double effet ; doublons ignorés comptés dans Grafana","shots":[{"file":"RES-S5-on-B-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-213913-B-S5-on-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"},{"file":"RES-S5-on-B-02-doublons-injectes-et-ignores-s.jpg","legend":"Doublons injectés et ignorés (/s) — passage 20261102-213913-B-S5-on-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"},{"file":"RES-S5-on-B-03-registre-d-idempotence-identifiants-gard.jpg","legend":"Registre d’idempotence (identifiants gardés) — passage 20261102-213913-B-S5-on-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"},{"file":"RES-S5-on-B-04-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 08da957b37dcdc7e628fb5ce39ae29ca — passage 20261102-213913-B-S5-on-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"}]}]},{"tab":"option-c","code":"C","title":"C — Option C, hybride (E6b)","intro":"","items":[{"id":"C-1","rev":1,"objective":"O2","how":"\u003ccode>OPTION=C\u003c/code>, commande valide, puis \u003ccode>GET /orders/&lt;id&gt;\u003c/code>","expected":"201 \u003ccode>CONFIRMED\u003c/code> dès que paiement et stock sont acquis ; expédition et notification arrivent ensuite par événement","shots":[]},{"id":"C-2","rev":1,"objective":"O5","how":"carte refusée, puis article en rupture","expected":"402, puis 409 avec paiement \u003cstrong>remboursé\u003c/strong> ; aucun événement \u003ccode>OrderConfirmed\u003c/code>","shots":[]},{"id":"C-3","rev":1,"objective":"O2","how":"Shipping indisponible 30 s pendant un envoi continu (S4b)","expected":"commandes toujours confirmées (201) ; la file \u003ccode>shipping\u003c/code> grossit puis se vide","shots":[{"file":"RES-S4b-C-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-213614-C-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-C-02-commandes-envoyees-et-reponses-par-statu.jpg","legend":"Commandes envoyées et réponses par statut (/s) — passage 20261102-213614-C-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-C-03-commandes-en-cours-travail-accumule.jpg","legend":"Commandes en cours (travail accumulé) — passage 20261102-213614-C-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-C-04-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-213614-C-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-C-05-trace-commande-temoin.jpg","legend":"Trace de la commande témoin cd22bd6cf7505418fb88561d99b1ad55 — passage 20261102-213614-C-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"}]}]},{"tab":"observabilite","code":"OBS","title":"OBS — Observabilité (E7)","intro":"","items":[{"id":"OBS-1","rev":1,"objective":"O4","how":"A : une commande, recherche dans Tempo par \u003ccode>order.id\u003c/code>","expected":"une trace : Order puis les 4 appels, en cascade bloquante","shots":[{"file":"RES-S1-A-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 629647ef2ba376301c407c75a40c642e — passage 20261102-210957-A-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"}]},{"id":"OBS-2","rev":1,"objective":"O4","how":"B : une commande, même recherche","expected":"\u003cstrong>une seule\u003c/strong> trace qui traverse les 5 services via le broker (contexte propagé dans les messages)","shots":[{"file":"RES-S1-B-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 46de2f20d0da0330a44109504f0f2061 — passage 20261102-211122-B-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"}]},{"id":"OBS-2b","rev":1,"objective":"O4","how":"C : une commande, même recherche","expected":"une seule trace : partie synchrone (Payment, Inventory) puis partie événementielle (Shipping, Notification)","shots":[{"file":"RES-S1-C-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 1be1fc431fab5c3e8b6da56f19a4128e — passage 20261102-211251-C-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"}]},{"id":"OBS-3","rev":1,"objective":"O4","how":"lien Grafana affiché par \u003ccode>run.sh\u003c/code>","expected":"le tableau de bord s'ouvre sur la fenêtre du passage, filtré sur son option et son scénario","shots":[{"file":"RES-S1-A-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-210957-A-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"}]}]},{"tab":"banc","code":"BANC","title":"BANC — Banc d'essai (E8, E9)","intro":"","items":[{"id":"BANC-1","rev":1,"objective":"O3","how":"\u003ccode>scripts/run.sh A S1\u003c/code> (version courte possible)","expected":"dossier \u003ccode>results/runs/&lt;id&gt;/\u003c/code> (résumé k6, audit, métriques), ligne ajoutée à \u003ccode>results/runs.csv\u003c/code>, lien Grafana affiché","shots":[]},{"id":"BANC-2","rev":1,"objective":"O3","how":"\u003ccode>npm run captures\u003c/code>","expected":"captures nommées selon le contrat, aucune « No data » ; liste des images nouvelles, modifiées, supprimées","shots":[]}]},{"tab":"resultats","code":"RES","title":"RES — Résultats proposés (E12)","intro":"Un scénario par S1 à S5 : graphiques A, B, C (médiane, min, max des 3 répétitions), captures du passage médian, hypothèses concernées \u003cstrong>confirmées ou infirmées\u003c/strong> avec le chiffre et le passage source. Attendu : l'équipe est d'accord avec la lecture proposée, ou la conteste en commentaire.","items":[{"id":"RES-S1","rev":1,"objective":"","how":"","expected":"H1 (nominal), H4 (ressources), H5, H6, H7","shots":[]},{"id":"RES-S2","rev":1,"objective":"","how":"","expected":"H1 (pic), H6, H7","shots":[]},{"id":"RES-S3","rev":1,"objective":"","how":"","expected":"H2, H4 (connexions), H6, H7","shots":[]},{"id":"RES-S4","rev":1,"objective":"","how":"","expected":"H2, H6, H7 (S4b si joué)","shots":[]},{"id":"RES-S5","rev":1,"objective":"","how":"","expected":"H3, H6","shots":[]}]},{"tab":"decision","code":"DEC","title":"DEC — Décision proposée (E13)","intro":"","items":[{"id":"DEC-1","rev":1,"objective":"O1","how":"","expected":"matrice de décision : chaque case cite un résultat (RES-…)","shots":[]},{"id":"DEC-2","rev":1,"objective":"O1","how":"","expected":"ADR-001 final : décision, preuves, compromis, limites, conséquences ; skill \u003ccode>revue-adr\u003c/code> passée sans point bloquant","shots":[]}]}],"decisions":[{"id":"D1","text":"Même code par service, mode choisi par \u003ccode>OPTION=A|B|C\u003c/code>","status":"Proposé","why":"seul le transport diffère (O2)"},{"id":"D2","text":"B en chorégraphie avec RabbitMQ (comme l'ADR)","status":"À valider","why":"broker léger, déjà prévu par l'ADR"},{"id":"D3","text":"Concurrence de référence 100 : pool HTTP pour les appels synchrones (A, partie synchrone de C), prefetch pour les événements (B, partie événementielle de C)","status":"À valider","why":"même capacité par service appelé (O2)"},{"id":"D4","text":"B : 202 renvoyé après confirmation du broker","status":"Proposé","why":"« accepté » = enregistré durablement"},{"id":"D5","text":"Pannes injectées par une route d'administration, identique en A, B et C : Payment (S3, S4) et Shipping (S4b)","status":"Proposé","why":"plus simple que Toxiproxy (Docconnect), même panne pour les deux options"},{"id":"D6","text":"Supervision : Prometheus, Tempo, Grafana, cAdvisor (versions de Docconnect) ; ni Loki ni Alertmanager","status":"Proposé","why":"la trace suffit à reconstruire une commande (O4)"},{"id":"D7","text":"Docker en contexte \u003ccode>default\u003c/code> (moteur natif, 12 CPU, 16 Go) ; k6 en conteneur","status":"Proposé","why":"Docker Desktop n'a que 3,9 Go ; k6 n'est pas installé"},{"id":"D8","text":"Captures Grafana et traces \u003cstrong>automatiques\u003c/strong> (Playwright, mode kiosque), passage \u003cstrong>médian\u003c/strong>, axes fixes","status":"Proposé","why":"reproductibles, pas de choix du « plus beau » passage"},{"id":"D9","text":"Recette HTML publiée par livrable, résultats des testeurs partagés (OK / KO / Bloqué + commentaire)","status":"Proposé","why":"les résultats sont présentés à l'équipe comme propositions"},{"id":"D10","text":"Graphiques A, B, C calculés depuis \u003ccode>results/runs.csv\u003c/code> (3 répétitions), dans la recette","status":"Proposé","why":"une capture ne montre qu'un passage"},{"id":"D11","text":"\u003cstrong>Option C hybride construite et mesurée\u003c/strong> : Payment et Inventory en synchrone (201 = paiement et stock garantis), puis \u003ccode>OrderConfirmed\u003c/code> publié pour Shipping et Notification","status":"Validé (Marc, 02/11)","why":"une conclusion « hybride » doit reposer sur des mesures (énoncé §11), pas sur une opinion"},{"id":"D12","text":"Complétion mesurée de la même façon pour A, B et C : de la réception jusqu'à l'issue connue \u003cstrong>et\u003c/strong>, si la commande est confirmée, l'expédition demandée. En C, le 201 arrive donc avant la fin du workflow, comme le 202 en B","status":"Proposé","why":"comparer des durées comparables (H5) ; la notification n'est pas comptée"},{"id":"D13","text":"Répétitions courtes (\u003ccode>DURATION_FACTOR\u003c/code>) rangées à part (\u003ccode>results/rehearsals/\u003c/code>) : jamais utilisées comme preuves","status":"Proposé","why":"traçabilité (AGENTS.md, règle 2)"},{"id":"D14","text":"Tableau de bord Grafana généré par \u003ccode>scripts/build-dashboard.mjs\u003c/code>, chaque panneau nomme l'hypothèse qu'il sert","status":"Proposé","why":"énoncé §10 : aucune métrique sans hypothèse"},{"id":"D15","text":"Campagne : ordre des options alterné à chaque répétition (A B C, B C A, C A B)","status":"Proposé","why":"une dérive de la machine ne pénalise pas toujours la même option"}],"requirements":[{"id":"R1","text":"Charge normale : 100 cmd/s sans accumulation","threshold":"débit atteint ≥ 98 % de la cible ; commandes en attente (ou files) stables : fin de palier ≤ 2 × début de palier"},{"id":"R2","text":"Pic : 500 cmd/s pendant 5 min, sans effondrement incontrôlé","threshold":"erreurs non prévues &lt; 1 % ; latence d'acceptation bornée (ne croît pas sans fin)"},{"id":"R3","text":"Latence d'acceptation sous charge normale","threshold":"p95 &lt; 1 s"},{"id":"R4","text":"Fiabilité","threshold":"0 commande confirmée sans paiement autorisé \u003cstrong>et\u003c/strong> stock réservé (audit)"},{"id":"R5","text":"Observabilité","threshold":"une commande reconstruite de bout en bout à partir de son identifiant"}],"hypotheses":[{"id":"H1","text":"À 100/s, A et B équivalents (écart de p95 d'acceptation &lt; 10 %) ; à 500/s, B garde son débit et &lt; 1 % d'erreurs, A se dégrade et dépasse 1 %","scenarios":"S1, S2","metrics":"débit atteint, requêtes abandonnées par k6, acceptation p50/p95/p99, erreurs non prévues, commandes complétées/s, commandes en attente, profondeur des files","confirmed":"les deux conditions sont vraies sur la médiane des 3 répétitions"},{"id":"H2","text":"Payment lent (2 s) ou indisponible (30 s) : B continue d'accepter les commandes et n'en perd aucune ; A les ralentit ou les rejette","scenarios":"S3, S4","metrics":"acceptation p95, commandes rejetées ou perdues, profondeur de la file Payment, temps de retour à la normale après la panne","confirmed":"B : acceptation p95 &lt; 1 s pendant la panne et 0 commande perdue ; A : rejets ou p95 &gt; 1 s"},{"id":"H3","text":"Sans idempotence, les doublons produisent des effets en double ; avec déduplication par \u003ccode>eventId\u003c/code>, aucun ; coût mesurable","scenarios":"S5-off, S5-on","metrics":"doubles paiements, doubles réservations, doubles notifications (audit), taille du registre d'idempotence, surcoût de complétion p95, lignes de code ajoutées","confirmed":"S5-off &gt; 0 doublon d'effet ; S5-on = 0 ; coût chiffré"},{"id":"H4","text":"À 100/s, B consomme plus de CPU et de RAM (broker compris) ; Payment lent sature les connexions de A, pas celles de B","scenarios":"S1, S3","metrics":"CPU et RAM par conteneur et total, connexions du pool (utilisées, en attente) en A, connexions entrantes d'Order","confirmed":"B &gt; A en ressources à S1 ; pool de A saturé à S3, connexions de B stables"},{"id":"H5","text":"À 100/s, A offre une latence de \u003cstrong>complétion\u003c/strong> plus faible que B (énoncé, H2)","scenarios":"S1","metrics":"complétion p50/p95/p99","confirmed":"p95 de A &lt; p95 de B"},{"id":"H6","text":"L'invariant tient dans \u003cstrong>tous\u003c/strong> les scénarios, pour A, B et C","scenarios":"tous","metrics":"audit : confirmées sans paiement ou sans réservation, paiements non remboursés de commandes rejetées, commandes restées en attente","confirmed":"0 violation ; les commandes en attente à la fin sont expliquées"},{"id":"H7","text":"C donne au client la même garantie que A (201 = paiement et stock acquis) avec une acceptation plus rapide que A et des ressources inférieures à B ; mais C reste aussi sensible que A à un Payment lent ou indisponible","scenarios":"S1, S2, S3, S4 (S4b si joué)","metrics":"acceptation p95, débit, erreurs, CPU et RAM ; S4b : commandes acceptées pendant la panne de Shipping","confirmed":"S1 : acceptation C &lt; A et ressources C &lt; B ; S3/S4 : C ≈ A ; S4b : C et B acceptent, A rejette"}],"results":{"source":"results/rehearsals.csv","rehearsal":true,"scenarios":[{"id":"S1","runs":[{"runId":"20261102-210957-A-S1-r1","option":"A","scenario":"S1","repetition":"1","durationFactor":"0.25","commit":"bdba9d2","dirty":"true","sent":"4899","dropped":"0","achievedRate":"90.7","accP50Ms":"562","accP95Ms":"747","accP99Ms":"1147","accMaxMs":"1341","unexpectedPct":"0","complP50S":"0.41","complP95S":"0.71","complP99S":"0.93","confirmed":"3903","rejected":"997","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.203","drainS":"0","maxPending":"76","maxPoolQueued":"0","maxOrderConnections":"201","maxEventLoopLagMs":"222","cpuCoresAvg":"1.43","cpuCoresMax":"1.88","memMiBMax":"863","rabbitMemMiB":"239","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","witnessTraceId":"629647ef2ba376301c407c75a40c642e"},{"runId":"20261102-211122-B-S1-r1","option":"B","scenario":"S1","repetition":"1","durationFactor":"0.25","commit":"bdba9d2","dirty":"true","sent":"4899","dropped":"0","achievedRate":"90.7","accP50Ms":"11","accP95Ms":"30","accP99Ms":"252","accMaxMs":"408","unexpectedPct":"0","complP50S":"0.38","complP95S":"0.49","complP99S":"0.58","confirmed":"3906","rejected":"994","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.203","drainS":"2","maxPending":"42","maxQueue":"67","maxPaymentQueue":"25","maxOrderConnections":"201","maxEventLoopLagMs":"102","cpuCoresAvg":"1.33","cpuCoresMax":"1.97","memMiBMax":"983","rabbitCpuAvg":"0.43","rabbitMemMiB":"355","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","idempotencyStoreMax":"30759","witnessTraceId":"46de2f20d0da0330a44109504f0f2061"},{"runId":"20261102-211251-C-S1-r1","option":"C","scenario":"S1","repetition":"1","durationFactor":"0.25","commit":"bdba9d2","dirty":"true","sent":"4892","dropped":"0","achievedRate":"90.6","accP50Ms":"334","accP95Ms":"471","accP99Ms":"615","accMaxMs":"798","unexpectedPct":"0","complP50S":"0.39","complP95S":"0.65","complP99S":"0.74","confirmed":"3896","rejected":"997","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.204","drainS":"0","maxPending":"51","maxQueue":"27","maxPoolQueued":"0","maxOrderConnections":"201","maxEventLoopLagMs":"92","cpuCoresAvg":"1.48","cpuCoresMax":"2.03","memMiBMax":"1302","rabbitCpuAvg":"0.25","rabbitMemMiB":"479","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","idempotencyStoreMax":"10354","witnessTraceId":"1be1fc431fab5c3e8b6da56f19a4128e"}],"shots":{"A":[{"file":"RES-S1-A-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-210957-A-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-A-02-latence-d-acceptation-premiere-reponse.jpg","legend":"Latence d'acceptation (première réponse) — passage 20261102-210957-A-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-A-03-latence-de-completion-commandes-confirme.jpg","legend":"Latence de complétion (commandes confirmées) — passage 20261102-210957-A-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-A-04-cpu-par-conteneur-c-urs.jpg","legend":"CPU par conteneur (cœurs) — passage 20261102-210957-A-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-A-05-memoire-par-conteneur.jpg","legend":"Mémoire par conteneur — passage 20261102-210957-A-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-A-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 629647ef2ba376301c407c75a40c642e — passage 20261102-210957-A-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"}],"B":[{"file":"RES-S1-B-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-211122-B-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-B-02-latence-d-acceptation-premiere-reponse.jpg","legend":"Latence d'acceptation (première réponse) — passage 20261102-211122-B-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-B-03-latence-de-completion-commandes-confirme.jpg","legend":"Latence de complétion (commandes confirmées) — passage 20261102-211122-B-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-B-04-cpu-par-conteneur-c-urs.jpg","legend":"CPU par conteneur (cœurs) — passage 20261102-211122-B-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-B-05-memoire-par-conteneur.jpg","legend":"Mémoire par conteneur — passage 20261102-211122-B-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-B-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 46de2f20d0da0330a44109504f0f2061 — passage 20261102-211122-B-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"}],"C":[{"file":"RES-S1-C-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-211251-C-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-C-02-latence-d-acceptation-premiere-reponse.jpg","legend":"Latence d'acceptation (première réponse) — passage 20261102-211251-C-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-C-03-latence-de-completion-commandes-confirme.jpg","legend":"Latence de complétion (commandes confirmées) — passage 20261102-211251-C-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-C-04-cpu-par-conteneur-c-urs.jpg","legend":"CPU par conteneur (cœurs) — passage 20261102-211251-C-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-C-05-memoire-par-conteneur.jpg","legend":"Mémoire par conteneur — passage 20261102-211251-C-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S1-C-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 1be1fc431fab5c3e8b6da56f19a4128e — passage 20261102-211251-C-S1-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"}]}},{"id":"S2","runs":[{"runId":"20261102-211419-A-S2-r1","option":"A","scenario":"S2","repetition":"1","durationFactor":"0.25","commit":"bdba9d2","dirty":"true","sent":"38511","dropped":"15738","achievedRate":"251.7","accP50Ms":"1098","accP95Ms":"4870","accP99Ms":"10000","accMaxMs":"10012","unexpectedPct":"44.37","complP50S":"1.16","complP95S":"1.85","complP99S":"2.09","confirmed":"18341","rejected":"4586","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.2","drainS":"2","maxPending":"223","maxPoolQueued":"24","maxOrderConnections":"626","maxEventLoopLagMs":"746","cpuCoresAvg":"1.66","cpuCoresMax":"2.08","memMiBMax":"1436","rabbitMemMiB":"410","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","witnessTraceId":"df2492d436581b6bd09a6dfbcc85d4a1"},{"runId":"20261102-211725-B-S2-r1","option":"B","scenario":"S2","repetition":"1","durationFactor":"0.25","commit":"bdba9d2","dirty":"true","sent":"54200","dropped":"49","achievedRate":"379","accP50Ms":"11","accP95Ms":"228","accP99Ms":"364","accMaxMs":"828","unexpectedPct":"0","complP50S":"1.72","complP95S":"5.16","complP99S":"7.03","confirmed":"43521","rejected":"10680","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.197","drainS":"6","maxPending":"2488","maxQueue":"3096","maxPaymentQueue":"2702","maxOrderConnections":"242","maxEventLoopLagMs":"203","cpuCoresAvg":"2.27","cpuCoresMax":"2.84","memMiBMax":"999","rabbitCpuAvg":"0.77","rabbitMemMiB":"451","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","idempotencyStoreMax":"344910","witnessTraceId":"6d190b877742e50b54ff5b659ca62f10"},{"runId":"20261102-212027-C-S2-r1","option":"C","scenario":"S2","repetition":"1","durationFactor":"0.25","commit":"bdba9d2","dirty":"true","sent":"40959","dropped":"13290","achievedRate":"269.5","accP50Ms":"1663","accP95Ms":"6917","accP99Ms":"10000","accMaxMs":"10068","unexpectedPct":"31.25","complP50S":"1.24","complP95S":"2.77","complP99S":"2.96","confirmed":"23760","rejected":"5992","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.201","drainS":"0","maxPending":"558","maxQueue":"195","maxPoolQueued":"294","maxOrderConnections":"659","maxEventLoopLagMs":"580","cpuCoresAvg":"1.9","cpuCoresMax":"2.41","memMiBMax":"1133","rabbitCpuAvg":"0.27","rabbitMemMiB":"402","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","idempotencyStoreMax":"69578","witnessTraceId":"e310c6fc8ca1792d2893938b77d4a050"}],"shots":{"A":[{"file":"RES-S2-A-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-211419-A-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-A-02-latence-d-acceptation-premiere-reponse.jpg","legend":"Latence d'acceptation (première réponse) — passage 20261102-211419-A-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-A-03-commandes-envoyees-et-reponses-par-statu.jpg","legend":"Commandes envoyées et réponses par statut (/s) — passage 20261102-211419-A-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-A-04-commandes-en-cours-travail-accumule.jpg","legend":"Commandes en cours (travail accumulé) — passage 20261102-211419-A-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-A-05-commandes-non-envoyees-par-k6-s.jpg","legend":"Commandes non envoyées par k6 (/s) — passage 20261102-211419-A-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-A-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin df2492d436581b6bd09a6dfbcc85d4a1 — passage 20261102-211419-A-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"}],"B":[{"file":"RES-S2-B-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-211725-B-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-B-02-latence-d-acceptation-premiere-reponse.jpg","legend":"Latence d'acceptation (première réponse) — passage 20261102-211725-B-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-B-03-commandes-envoyees-et-reponses-par-statu.jpg","legend":"Commandes envoyées et réponses par statut (/s) — passage 20261102-211725-B-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-B-04-commandes-en-cours-travail-accumule.jpg","legend":"Commandes en cours (travail accumulé) — passage 20261102-211725-B-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-B-05-commandes-non-envoyees-par-k6-s.jpg","legend":"Commandes non envoyées par k6 (/s) — passage 20261102-211725-B-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-B-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 6d190b877742e50b54ff5b659ca62f10 — passage 20261102-211725-B-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"}],"C":[{"file":"RES-S2-C-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-212027-C-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-C-02-latence-d-acceptation-premiere-reponse.jpg","legend":"Latence d'acceptation (première réponse) — passage 20261102-212027-C-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-C-03-commandes-envoyees-et-reponses-par-statu.jpg","legend":"Commandes envoyées et réponses par statut (/s) — passage 20261102-212027-C-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-C-04-commandes-en-cours-travail-accumule.jpg","legend":"Commandes en cours (travail accumulé) — passage 20261102-212027-C-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-C-05-commandes-non-envoyees-par-k6-s.jpg","legend":"Commandes non envoyées par k6 (/s) — passage 20261102-212027-C-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"},{"file":"RES-S2-C-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin e310c6fc8ca1792d2893938b77d4a050 — passage 20261102-212027-C-S2-r1 (médiane de 1 sur accP95Ms), commit bdba9d2"}]}},{"id":"S3","runs":[{"runId":"20261102-212333-A-S3-r1","option":"A","scenario":"S3","repetition":"1","durationFactor":"0.25","commit":"bdba9d2","dirty":"true","sent":"5643","dropped":"306","achievedRate":"91","accP50Ms":"2320","accP95Ms":"5035","accP99Ms":"5322","accMaxMs":"8573","unexpectedPct":"33.74","complP50S":"0.5","complP95S":"4.53","complP99S":"4.92","confirmed":"3021","rejected":"2623","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.465","drainS":"0","maxPending":"487","maxPoolQueued":"387","maxOrderConnections":"503","maxEventLoopLagMs":"282","cpuCoresAvg":"1.15","cpuCoresMax":"1.66","memMiBMax":"1084","rabbitMemMiB":"333","faultStart":"1793672653","faultEnd":"1793672678","accP95FaultMs":"5168","recoveryS":"10","invariantViolations":"0","paidNotConfirmed":"1715","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","witnessTraceId":"5f799bfce2840ab31c4923f4e1207c31"},{"runId":"20261102-212506-B-S3-r1","option":"B","scenario":"S3","repetition":"1","durationFactor":"0.25","commit":"bdba9d2","dirty":"true","sent":"5949","dropped":"0","achievedRate":"96","accP50Ms":"8","accP95Ms":"27","accP99Ms":"72","accMaxMs":"192","unexpectedPct":"0","complP50S":"4.4","complP95S":"15.74","complP99S":"19.15","confirmed":"4774","rejected":"1176","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.198","drainS":"0","maxPending":"1429","maxQueue":"1823","maxPaymentQueue":"1675","maxOrderConnections":"201","maxEventLoopLagMs":"20","cpuCoresAvg":"1.26","cpuCoresMax":"1.83","memMiBMax":"980","rabbitCpuAvg":"0.4","rabbitMemMiB":"311","faultStart":"1793672749","faultEnd":"1793672774","accP95FaultMs":"27","recoveryS":"15","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","idempotencyStoreMax":"36766","witnessTraceId":"45945d4bc332696736bdf16c6c64d0fe"},{"runId":"20261102-212641-C-S3-r1","option":"C","scenario":"S3","repetition":"1","durationFactor":"0.25","commit":"bdba9d2","dirty":"true","sent":"5647","dropped":"302","achievedRate":"89.6","accP50Ms":"1167","accP95Ms":"5036","accP99Ms":"5132","accMaxMs":"8468","unexpectedPct":"33.73","complP50S":"0.46","complP95S":"4.4","complP99S":"4.91","confirmed":"2999","rejected":"2649","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.469","drainS":"0","maxPending":"494","maxQueue":"24","maxPoolQueued":"394","maxOrderConnections":"501","maxEventLoopLagMs":"138","cpuCoresAvg":"1.24","cpuCoresMax":"1.91","memMiBMax":"1393","rabbitCpuAvg":"0.19","rabbitMemMiB":"488","faultStart":"1793672845","faultEnd":"1793672870","accP95FaultMs":"5173","invariantViolations":"0","paidNotConfirmed":"1721","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","idempotencyStoreMax":"7740","witnessTraceId":"593838d2433b27e6fa01d80460ce0e72"}],"shots":{"A":[{"file":"RES-S3-A-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-212333-A-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-A-02-latence-d-acceptation-premiere-reponse.jpg","legend":"Latence d'acceptation (première réponse) — passage 20261102-212333-A-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-A-03-latence-de-completion-commandes-confirme.jpg","legend":"Latence de complétion (commandes confirmées) — passage 20261102-212333-A-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-A-04-pool-http-d-order-par-service-appele-a-c.jpg","legend":"Pool HTTP d’Order par service appelé (A, C) — passage 20261102-212333-A-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-A-05-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-212333-A-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-A-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 5f799bfce2840ab31c4923f4e1207c31 — passage 20261102-212333-A-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"}],"B":[{"file":"RES-S3-B-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-212506-B-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-B-02-latence-d-acceptation-premiere-reponse.jpg","legend":"Latence d'acceptation (première réponse) — passage 20261102-212506-B-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-B-03-latence-de-completion-commandes-confirme.jpg","legend":"Latence de complétion (commandes confirmées) — passage 20261102-212506-B-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-B-04-pool-http-d-order-par-service-appele-a-c.jpg","legend":"Pool HTTP d’Order par service appelé (A, C) — passage 20261102-212506-B-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-B-05-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-212506-B-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-B-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 45945d4bc332696736bdf16c6c64d0fe — passage 20261102-212506-B-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"}],"C":[{"file":"RES-S3-C-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-212641-C-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-C-02-latence-d-acceptation-premiere-reponse.jpg","legend":"Latence d'acceptation (première réponse) — passage 20261102-212641-C-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-C-03-latence-de-completion-commandes-confirme.jpg","legend":"Latence de complétion (commandes confirmées) — passage 20261102-212641-C-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-C-04-pool-http-d-order-par-service-appele-a-c.jpg","legend":"Pool HTTP d’Order par service appelé (A, C) — passage 20261102-212641-C-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-C-05-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-212641-C-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"},{"file":"RES-S3-C-06-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 593838d2433b27e6fa01d80460ce0e72 — passage 20261102-212641-C-S3-r1 (médiane de 1 sur complP95S), commit bdba9d2"}]}},{"id":"S4","runs":[{"runId":"20261102-212818-A-S4-r1","option":"A","scenario":"S4","repetition":"1","durationFactor":"0.25","commit":"bdba9d2","dirty":"true","sent":"5949","dropped":"0","achievedRate":"96","accP50Ms":"550","accP95Ms":"822","accP99Ms":"945","accMaxMs":"1050","unexpectedPct":"13.45","complP50S":"0.41","complP95S":"0.71","complP99S":"0.75","confirmed":"4103","rejected":"1847","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.31","drainS":"0","maxPending":"62","maxPoolQueued":"0","maxOrderConnections":"202","maxEventLoopLagMs":"145","cpuCoresAvg":"1.41","cpuCoresMax":"1.91","memMiBMax":"1194","rabbitMemMiB":"295","faultStart":"1793672938","faultEnd":"1793672943","accP95FaultMs":"550","recoveryS":"5","invariantViolations":"0","paidNotConfirmed":"3","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","witnessTraceId":"08e45138dfb0ee09e95424783afc3b51"},{"runId":"20261102-212951-B-S4-r1","option":"B","scenario":"S4","repetition":"1","durationFactor":"0.25","commit":"c5837c7","dirty":"false","sent":"5949","dropped":"0","achievedRate":"96","accP50Ms":"9","accP95Ms":"28","accP99Ms":"125","accMaxMs":"302","unexpectedPct":"0","complP50S":"0.4","complP95S":"6.32","complP99S":"8.82","confirmed":"4835","rejected":"1115","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.187","drainS":"0","maxPending":"645","maxQueue":"534","maxPaymentQueue":"534","maxOrderConnections":"201","maxEventLoopLagMs":"54","cpuCoresAvg":"1.3","cpuCoresMax":"1.83","memMiBMax":"1360","rabbitCpuAvg":"0.42","rabbitMemMiB":"501","faultStart":"1793673034","faultEnd":"1793673039","accP95FaultMs":"16","recoveryS":"5","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","idempotencyStoreMax":"36865","witnessTraceId":"156454ff46f00b4be32dab491682b678"},{"runId":"20261102-213126-C-S4-r1","option":"C","scenario":"S4","repetition":"1","durationFactor":"0.25","commit":"c5837c7","dirty":"false","sent":"5949","dropped":"0","achievedRate":"96","accP50Ms":"323","accP95Ms":"411","accP99Ms":"493","accMaxMs":"674","unexpectedPct":"13.45","complP50S":"0.38","complP95S":"0.51","complP99S":"0.7","confirmed":"4139","rejected":"1811","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.304","drainS":"0","maxPending":"65","maxQueue":"24","maxPoolQueued":"0","maxOrderConnections":"201","maxEventLoopLagMs":"80","cpuCoresAvg":"1.36","cpuCoresMax":"1.8","memMiBMax":"1289","rabbitCpuAvg":"0.23","rabbitMemMiB":"450","faultStart":"1793673130","faultEnd":"1793673130","accP95FaultMs":"385","recoveryS":"5","invariantViolations":"0","paidNotConfirmed":"3","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","idempotencyStoreMax":"11317","witnessTraceId":"80cef06fc994e3983d79d3fa658266e8"}],"shots":{"A":[{"file":"RES-S4-A-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-212818-A-S4-r1 (médiane de 1 sur recoveryS), commit bdba9d2"},{"file":"RES-S4-A-02-commandes-envoyees-et-reponses-par-statu.jpg","legend":"Commandes envoyées et réponses par statut (/s) — passage 20261102-212818-A-S4-r1 (médiane de 1 sur recoveryS), commit bdba9d2"},{"file":"RES-S4-A-03-commandes-en-cours-travail-accumule.jpg","legend":"Commandes en cours (travail accumulé) — passage 20261102-212818-A-S4-r1 (médiane de 1 sur recoveryS), commit bdba9d2"},{"file":"RES-S4-A-04-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-212818-A-S4-r1 (médiane de 1 sur recoveryS), commit bdba9d2"},{"file":"RES-S4-A-05-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 08e45138dfb0ee09e95424783afc3b51 — passage 20261102-212818-A-S4-r1 (médiane de 1 sur recoveryS), commit bdba9d2"}],"B":[{"file":"RES-S4-B-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-212951-B-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4-B-02-commandes-envoyees-et-reponses-par-statu.jpg","legend":"Commandes envoyées et réponses par statut (/s) — passage 20261102-212951-B-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4-B-03-commandes-en-cours-travail-accumule.jpg","legend":"Commandes en cours (travail accumulé) — passage 20261102-212951-B-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4-B-04-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-212951-B-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4-B-05-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 156454ff46f00b4be32dab491682b678 — passage 20261102-212951-B-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"}],"C":[{"file":"RES-S4-C-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-213126-C-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4-C-02-commandes-envoyees-et-reponses-par-statu.jpg","legend":"Commandes envoyées et réponses par statut (/s) — passage 20261102-213126-C-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4-C-03-commandes-en-cours-travail-accumule.jpg","legend":"Commandes en cours (travail accumulé) — passage 20261102-213126-C-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4-C-04-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-213126-C-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4-C-05-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 80cef06fc994e3983d79d3fa658266e8 — passage 20261102-213126-C-S4-r1 (médiane de 1 sur recoveryS), commit c5837c7"}]}},{"id":"S4b","runs":[{"runId":"20261102-213303-A-S4b-r1","option":"A","scenario":"S4b","repetition":"1","durationFactor":"0.25","commit":"c5837c7","dirty":"false","sent":"5949","dropped":"0","achievedRate":"94.4","accP50Ms":"566","accP95Ms":"784","accP99Ms":"950","accMaxMs":"1332","unexpectedPct":"10.52","complP50S":"0.41","complP95S":"0.71","complP99S":"0.83","confirmed":"4127","rejected":"1823","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.306","drainS":"0","maxPending":"55","maxPoolQueued":"0","maxOrderConnections":"201","maxEventLoopLagMs":"169","cpuCoresAvg":"1.46","cpuCoresMax":"1.89","memMiBMax":"1146","rabbitMemMiB":"281","faultStart":"1793673223","faultEnd":"1793673228","accP95FaultMs":"667","recoveryS":"5","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","witnessTraceId":"df1024f7be69e0b2de0bb3bf97a18a80"},{"runId":"20261102-213436-B-S4b-r1","option":"B","scenario":"S4b","repetition":"1","durationFactor":"0.25","commit":"c5837c7","dirty":"false","sent":"5949","dropped":"0","achievedRate":"96","accP50Ms":"12","accP95Ms":"30","accP99Ms":"76","accMaxMs":"167","unexpectedPct":"0","complP50S":"0.4","complP95S":"5.94","complP99S":"8.52","confirmed":"4781","rejected":"1169","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.196","drainS":"2","maxPending":"492","maxQueue":"494","maxPaymentQueue":"23","maxOrderConnections":"201","maxEventLoopLagMs":"68","cpuCoresAvg":"1.36","cpuCoresMax":"1.95","memMiBMax":"1311","rabbitCpuAvg":"0.48","rabbitMemMiB":"490","faultStart":"1793673324","faultEnd":"1793673324","accP95FaultMs":"30","recoveryS":"5","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","idempotencyStoreMax":"36291","witnessTraceId":"23703a13c58187c785874d025a359496"},{"runId":"20261102-213614-C-S4b-r1","option":"C","scenario":"S4b","repetition":"1","durationFactor":"0.25","commit":"c5837c7","dirty":"false","sent":"5949","dropped":"0","achievedRate":"96","accP50Ms":"327","accP95Ms":"422","accP99Ms":"530","accMaxMs":"816","unexpectedPct":"0","complP50S":"0.41","complP95S":"5.83","complP99S":"8.63","confirmed":"4736","rejected":"1214","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.204","drainS":"0","maxPending":"661","maxQueue":"455","maxPoolQueued":"0","maxOrderConnections":"202","maxEventLoopLagMs":"84","cpuCoresAvg":"1.54","cpuCoresMax":"2.09","memMiBMax":"1255","rabbitCpuAvg":"0.25","rabbitMemMiB":"442","faultStart":"1793673417","faultEnd":"1793673422","accP95FaultMs":"623","recoveryS":"5","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"0","duplicatesInjected":"0","duplicatesIgnored":"0","idempotencyStoreMax":"12598","witnessTraceId":"cd22bd6cf7505418fb88561d99b1ad55"}],"shots":{"A":[{"file":"RES-S4b-A-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-213303-A-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-A-02-commandes-envoyees-et-reponses-par-statu.jpg","legend":"Commandes envoyées et réponses par statut (/s) — passage 20261102-213303-A-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-A-03-commandes-en-cours-travail-accumule.jpg","legend":"Commandes en cours (travail accumulé) — passage 20261102-213303-A-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-A-04-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-213303-A-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-A-05-trace-commande-temoin.jpg","legend":"Trace de la commande témoin df1024f7be69e0b2de0bb3bf97a18a80 — passage 20261102-213303-A-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"}],"B":[{"file":"RES-S4b-B-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-213436-B-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-B-02-commandes-envoyees-et-reponses-par-statu.jpg","legend":"Commandes envoyées et réponses par statut (/s) — passage 20261102-213436-B-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-B-03-commandes-en-cours-travail-accumule.jpg","legend":"Commandes en cours (travail accumulé) — passage 20261102-213436-B-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-B-04-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-213436-B-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-B-05-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 23703a13c58187c785874d025a359496 — passage 20261102-213436-B-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"}],"C":[{"file":"RES-S4b-C-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-213614-C-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-C-02-commandes-envoyees-et-reponses-par-statu.jpg","legend":"Commandes envoyées et réponses par statut (/s) — passage 20261102-213614-C-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-C-03-commandes-en-cours-travail-accumule.jpg","legend":"Commandes en cours (travail accumulé) — passage 20261102-213614-C-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-C-04-messages-dans-les-files-rabbitmq-b-c.jpg","legend":"Messages dans les files RabbitMQ (B, C) — passage 20261102-213614-C-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"},{"file":"RES-S4b-C-05-trace-commande-temoin.jpg","legend":"Trace de la commande témoin cd22bd6cf7505418fb88561d99b1ad55 — passage 20261102-213614-C-S4b-r1 (médiane de 1 sur recoveryS), commit c5837c7"}]}},{"id":"S5-off","runs":[{"runId":"20261102-213750-B-S5-off-r1","option":"B","scenario":"S5-off","repetition":"1","durationFactor":"0.25","commit":"c5837c7","dirty":"false","sent":"4449","dropped":"0","achievedRate":"94.7","accP50Ms":"9","accP95Ms":"27","accP99Ms":"74","accMaxMs":"228","unexpectedPct":"0","complP50S":"0.38","complP95S":"0.49","complP99S":"0.5","confirmed":"3629","rejected":"821","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.184","drainS":"2","maxPending":"42","maxQueue":"78","maxPaymentQueue":"27","maxOrderConnections":"201","maxEventLoopLagMs":"23","cpuCoresAvg":"1.42","cpuCoresMax":"1.95","memMiBMax":"1272","rabbitCpuAvg":"0.48","rabbitMemMiB":"458","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"2438","duplicatesInjected":"2331","duplicatesIgnored":"0","idempotencyStoreMax":"0","witnessTraceId":"11df7ae25aa37d9c7d39b45af9588534"}],"shots":{"A":[],"B":[{"file":"RES-S5-off-B-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-213750-B-S5-off-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"},{"file":"RES-S5-off-B-02-doublons-injectes-et-ignores-s.jpg","legend":"Doublons injectés et ignorés (/s) — passage 20261102-213750-B-S5-off-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"},{"file":"RES-S5-off-B-03-registre-d-idempotence-identifiants-gard.jpg","legend":"Registre d’idempotence (identifiants gardés) — passage 20261102-213750-B-S5-off-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"},{"file":"RES-S5-off-B-04-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 11df7ae25aa37d9c7d39b45af9588534 — passage 20261102-213750-B-S5-off-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"}],"C":[]}},{"id":"S5-on","runs":[{"runId":"20261102-213913-B-S5-on-r1","option":"B","scenario":"S5-on","repetition":"1","durationFactor":"0.25","commit":"c5837c7","dirty":"false","sent":"4442","dropped":"0","achievedRate":"94.5","accP50Ms":"10","accP95Ms":"28","accP99Ms":"132","accMaxMs":"307","unexpectedPct":"0","complP50S":"0.38","complP95S":"0.49","complP99S":"0.5","confirmed":"3561","rejected":"882","pending":"0","unfinished":"0","confirmedWithoutShipment":"0","rejectedShare":"0.199","drainS":"2","maxPending":"42","maxQueue":"63","maxPaymentQueue":"24","maxOrderConnections":"201","maxEventLoopLagMs":"77","cpuCoresAvg":"1.4","cpuCoresMax":"2.01","memMiBMax":"1466","rabbitCpuAvg":"0.45","rabbitMemMiB":"644","invariantViolations":"0","paidNotConfirmed":"0","duplicateEffects":"0","duplicatesInjected":"2205","duplicatesIgnored":"3048","idempotencyStoreMax":"27958","witnessTraceId":"08da957b37dcdc7e628fb5ce39ae29ca"}],"shots":{"A":[],"B":[{"file":"RES-S5-on-B-01-tableau-de-bord.jpg","legend":"Tableau de bord complet — passage 20261102-213913-B-S5-on-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"},{"file":"RES-S5-on-B-02-doublons-injectes-et-ignores-s.jpg","legend":"Doublons injectés et ignorés (/s) — passage 20261102-213913-B-S5-on-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"},{"file":"RES-S5-on-B-03-registre-d-idempotence-identifiants-gard.jpg","legend":"Registre d’idempotence (identifiants gardés) — passage 20261102-213913-B-S5-on-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"},{"file":"RES-S5-on-B-04-trace-commande-temoin.jpg","legend":"Trace de la commande témoin 08da957b37dcdc7e628fb5ce39ae29ca — passage 20261102-213913-B-S5-on-r1 (médiane de 1 sur duplicateEffects), commit c5837c7"}],"C":[]}}]}};
+
+const STATUS = { ok: 'OK', ko: 'KO', blocked: 'Bloqué' };
+const TABS = [
+  { id: 'prise-en-main', label: 'Prise en main' },
+  { id: 'plan', label: 'Plan à valider' },
+  { id: 'socle', label: 'Socle' },
+  { id: 'option-a', label: 'Option A' },
+  { id: 'option-b', label: 'Option B' },
+  { id: 'option-c', label: 'Option C' },
+  { id: 'observabilite', label: 'Observabilité' },
+  { id: 'banc', label: 'Banc d’essai' },
+  { id: 'resultats', label: 'Résultats' },
+  { id: 'decision', label: 'Décision' },
+];
+
+// Metrics shown in the results tables: [csv column, label, unit, hypothesis]
+const METRICS = [
+  ['sent', 'Commandes envoyées', '', ''],
+  ['dropped', 'Non envoyées par k6', '', 'H1'],
+  ['achievedRate', 'Débit envoyé', '/s', 'H1'],
+  ['accP50Ms', 'Acceptation p50', 'ms', 'H1'],
+  ['accP95Ms', 'Acceptation p95', 'ms', 'H1 · R3 < 1000'],
+  ['accP99Ms', 'Acceptation p99', 'ms', 'H1'],
+  ['unexpectedPct', 'Réponses inattendues', '%', 'R2 < 1'],
+  ['complP95S', 'Complétion p95 (confirmées)', 's', 'H5'],
+  ['rejectedShare', 'Part des commandes rejetées', '', 'H2 · prévu ≈ 0,2'],
+  ['maxPending', 'Commandes en cours (max)', '', 'H1'],
+  ['maxQueue', 'Messages en file (max)', '', 'H2'],
+  ['maxPoolQueued', 'Attente d’une connexion du pool (max)', '', 'H4'],
+  ['maxOrderConnections', 'Connexions entrantes d’Order (max)', '', 'H4'],
+  ['accP95FaultMs', 'Acceptation p95 pendant la panne', 'ms', 'H2, H7'],
+  ['recoveryS', 'Retour à la normale après la panne', 's', 'H2'],
+  ['cpuCoresAvg', 'CPU moyen, broker compris', 'cœurs', 'H4, H7'],
+  ['rabbitCpuAvg', 'dont RabbitMQ', 'cœurs', 'H4'],
+  ['memMiBMax', 'Mémoire max', 'Mio', 'H4, H7'],
+  ['invariantViolations', 'Violations de l’invariant', '', 'H6 = 0'],
+  ['confirmedWithoutShipment', 'Confirmées sans expédition', '', 'H6 = 0'],
+  ['paidNotConfirmed', 'Payées sans être confirmées', '', 'H6 = 0'],
+  ['duplicateEffects', 'Effets en double', '', 'H3'],
+  ['duplicatesInjected', 'Doublons injectés', '', 'H3'],
+  ['duplicatesIgnored', 'Doublons ignorés', '', 'H3'],
+  ['idempotencyStoreMax', 'Registre d’idempotence (max)', 'ids', 'H3'],
+];
+const RES_SCENARIOS = { 'RES-S1': ['S1'], 'RES-S2': ['S2'], 'RES-S3': ['S3'], 'RES-S4': ['S4', 'S4b'], 'RES-S5': ['S5-off', 'S5-on'] };
+
+// ---------------------------------------------------------------------------
+// Shared marks (db capability); the page works read-only without it
+// ---------------------------------------------------------------------------
+const state = { marks: new Map(), db: null, user: null, me: null, names: {}, drafts: new Map(), loaded: false };
+const revOf = new Map();
+for (const d of DATA.deliverables) for (const it of d.items) revOf.set(it.id, it.rev);
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === undefined || v === null || v === false) continue;
+    if (k === 'html') node.innerHTML = v;
+    else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of children.flat(Infinity)) if (c !== null && c !== undefined && c !== false) node.append(c);
+  return node;
+}
+
+function statusOf(itemId) {
+  const list = state.marks.get(itemId) || [];
+  const rev = revOf.get(itemId) ?? 1;
+  const current = list.filter((m) => (m.rev ?? 1) === rev);
+  if (current.some((m) => m.status === 'ko')) return 'ko';
+  if (current.some((m) => m.status === 'blocked')) return 'blocked';
+  if (current.some((m) => m.status === 'ok')) return 'ok';
+  return null;
+}
+
+async function connect() {
+  if (!window.claude?.use) return;
+  try {
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    state.db = db;
+    state.user = user;
+    if (user) state.me = await user.id();
+    if (!db) { render(); return; }
+    const timer = setTimeout(() => { state.loaded = true; render(); }, 10000);
+    db.collection('marks').onSnapshot(async (snap) => {
+      clearTimeout(timer);
+      state.marks = new Map();
+      for (const doc of snap.docs) {
+        const m = doc.data();
+        if (!m?.item) continue;
+        if (!state.marks.has(m.item)) state.marks.set(m.item, []);
+        state.marks.get(m.item).push(m);
+      }
+      for (const list of state.marks.values()) list.sort((a, b) => (b.at || 0) - (a.at || 0));
+      const ids = [...new Set(snap.docs.map((d) => d.data()?.by).filter(Boolean))];
+      if (user && ids.length) state.names = await user.profiles(ids);
+      state.loaded = true;
+      render();
+    }, () => { clearTimeout(timer); state.loaded = true; render(); });
+  } catch { render(); }
+}
+
+async function saveMark(itemId, rev) {
+  const draft = state.drafts.get(itemId);
+  if (!draft?.status || !state.db || !state.me) return;
+  draft.saving = true;
+  render();
+  try {
+    await state.db.collection('marks').doc(`${itemId}--${state.me}`).set({
+      item: itemId, rev, status: draft.status, comment: draft.comment || '', by: state.me, at: Date.now(),
+    });
+    state.drafts.delete(itemId);
+  } catch (e) {
+    draft.error = e?.code === 'permission_denied' || e?.code === 'not_granted'
+      ? 'Votre accès à cette page ne permet pas d’enregistrer.'
+      : 'Enregistrement impossible, réessayez.';
+  }
+  draft.saving = false;
+  render();
+}
+
+function reviewBox(itemId, rev) {
+  const box = el('div', { class: 'review' }, el('h4', {}, 'Revue de l’équipe'));
+  const draft = state.drafts.get(itemId) || {};
+  const canWrite = !!(state.db && state.me);
+  const choices = el('div', { class: 'choices', role: 'group', 'aria-label': `Résultat pour ${itemId}` });
+  for (const [key, label] of Object.entries(STATUS)) {
+    choices.append(el('button', {
+      type: 'button', class: `choice s-${key}`, 'aria-pressed': String(draft.status === key), disabled: !canWrite,
+      onclick: () => { state.drafts.set(itemId, { ...draft, status: key }); render(); },
+    }, el('span', { class: `dot s-${key}` }), label));
+  }
+  box.append(choices);
+  const area = el('textarea', { id: `c-${itemId}`, placeholder: 'Commentaire (facultatif) : ce qui manque, ce qui surprend, ce que vous contestez', disabled: !canWrite });
+  area.value = draft.comment || '';
+  area.addEventListener('input', () => { state.drafts.set(itemId, { ...(state.drafts.get(itemId) || {}), comment: area.value }); });
+  box.append(area);
+  box.append(el('button', { type: 'button', class: 'save', disabled: !canWrite || !draft.status || draft.saving, onclick: () => saveMark(itemId, rev) }, draft.saving ? 'Enregistrement…' : 'Enregistrer'));
+  if (draft.error) box.append(el('p', { class: 'note' }, draft.error));
+  if (!canWrite) box.append(el('p', { class: 'note' }, state.db === null && window.claude?.use
+    ? 'Connectez-vous à claude.ai pour cocher et commenter.'
+    : 'Les coches partagées fonctionnent dans la page publiée ; ici, lecture seule.'));
+
+  const list = state.marks.get(itemId) || [];
+  if (list.length) {
+    const ul = el('ul', { class: 'marks' });
+    for (const m of list) {
+      const name = state.names[m.by]?.name || (m.by === state.me ? 'Vous' : 'Un membre de l’équipe');
+      ul.append(el('li', { class: 'mark' },
+        el('span', { class: 'who' }, el('span', { class: `dot s-${m.status}` }), `${STATUS[m.status] || m.status} · ${name}`,
+          el('span', { class: 'when' }, new Date(m.at).toLocaleString('fr-CA', { dateStyle: 'short', timeStyle: 'short' }))),
+        (m.rev ?? 1) !== rev ? el('span', { class: 'stale' }, `à revérifier : coché sur la version ${m.rev ?? 1}`) : null,
+        m.comment ? el('p', {}, m.comment) : null));
+    }
+    box.append(ul);
+  } else if (state.loaded) {
+    box.append(el('p', { class: 'note' }, 'Pas encore rejoué.'));
+  }
+  return box;
+}
+
+// ---------------------------------------------------------------------------
+// Views
+// ---------------------------------------------------------------------------
+function shotGrid(shots) {
+  if (!shots?.length) return null;
+  return el('div', { class: 'shots' }, shots.map((s) =>
+    el('button', { type: 'button', class: 'shot', onclick: () => zoom(s) },
+      el('img', { src: `img/${s.file}`, alt: s.legend, loading: 'lazy' }), el('span', {}, s.legend.split(' — ')[0]))));
+}
+
+function progress(ids) {
+  const counts = { ok: 0, ko: 0, blocked: 0, none: 0 };
+  for (const id of ids) counts[statusOf(id) || 'none']++;
+  return el('div', { class: 'progress' },
+    el('span', { class: 'chip s-ok' }, el('span', { class: 'dot' }), `${counts.ok} OK`),
+    el('span', { class: 'chip s-ko' }, el('span', { class: 'dot' }), `${counts.ko} KO`),
+    el('span', { class: 'chip s-blocked' }, el('span', { class: 'dot' }), `${counts.blocked} bloqué`),
+    el('span', { class: 'chip' }, el('span', { class: 'dot' }), `${counts.none} à rejouer`));
+}
+
+function scenarioCard(item, extra) {
+  const title = item.expected.replace(/<[^>]+>/g, '').split(/[;.]/)[0];
+  return el('article', { class: 'card', id: item.id },
+    el('div', { class: 'body' },
+      el('div', { class: 'card-title' }, el('span', { class: 'id' }, item.id), el('h3', {}, title.length > 90 ? `${title.slice(0, 88)}…` : title),
+        item.objective ? el('span', { class: 'tag' }, item.objective) : null, item.rev > 1 ? el('span', { class: 'tag' }, `version ${item.rev}`) : null),
+      el('dl', { class: 'fields' },
+        item.how ? [el('dt', {}, 'Comment faire'), el('dd', { html: item.how })] : null,
+        el('dt', {}, 'Attendu'), el('dd', { html: item.expected })),
+      shotGrid(item.shots), extra || null),
+    reviewBox(item.id, item.rev));
+}
+
+function viewDeliverable(tab) {
+  const d = DATA.deliverables.find((x) => x.tab === tab);
+  if (!d) return [el('p', { class: 'lead' }, 'Rien à rejouer pour l’instant.')];
+  return [
+    el('div', { class: 'section-head' }, el('h2', {}, d.title), d.intro ? el('p', { class: 'lead', html: d.intro }) : null, progress(d.items.map((i) => i.id))),
+    ...d.items.map((it) => scenarioCard(it)),
+  ];
+}
+
+function viewPlan() {
+  const card = (id, title, fields) => el('article', { class: 'card', id },
+    el('div', { class: 'body' }, el('div', { class: 'card-title' }, el('span', { class: 'id' }, id), el('h3', { html: title })),
+      el('dl', { class: 'fields' }, fields.filter(([, v]) => v).map(([k, v]) => [el('dt', {}, k), el('dd', { html: v })]))),
+    reviewBox(id, 1));
+  for (const x of [...DATA.decisions, ...DATA.requirements, ...DATA.hypotheses]) revOf.set(x.id, 1);
+  return [
+    el('div', { class: 'section-head' }, el('h2', {}, 'Plan à valider avant la campagne'),
+      el('p', { class: 'lead', html: 'Tout ce qui suit est <strong>proposé</strong>. Cochez OK si vous êtes d’accord, KO avec un commentaire si vous contestez. Les seuils et hypothèses doivent être figés <strong>avant</strong> de voir les résultats de la campagne.' }),
+      progress([...DATA.decisions, ...DATA.requirements, ...DATA.hypotheses].map((x) => x.id))),
+    el('h3', {}, 'Décisions de conception'),
+    ...DATA.decisions.map((x) => card(x.id, x.text, [['Statut', x.status], ['Raison', x.why]])),
+    el('h3', {}, 'Exigences et seuils de succès'),
+    ...DATA.requirements.map((x) => card(x.id, x.text, [['Seuil', x.threshold]])),
+    el('h3', {}, 'Hypothèses'),
+    ...DATA.hypotheses.map((x) => card(x.id, x.text, [['Scénarios', x.scenarios], ['Métriques', x.metrics], ['Confirmée si', x.confirmed]])),
+  ];
+}
+
+const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor((s.length - 1) / 2)]; };
+const fmt = (v) => (Math.abs(v) >= 100 ? Math.round(v).toLocaleString('fr-CA') : Number(v.toFixed(2)).toLocaleString('fr-CA'));
+
+function resultTable(scenario) {
+  const options = ['A', 'B', 'C'].filter((o) => scenario.runs.some((r) => r.option === o));
+  const rows = METRICS.filter(([key]) => scenario.runs.some((r) => r[key] !== undefined));
+  const head = el('tr', {}, el('th', {}, 'Mesure'), options.map((o) => el('th', { class: 'num' }, el('span', { class: `opt opt-${o}` }, `Option ${o}`))), el('th', {}, 'Sert'));
+  const body = rows.map(([key, label, unit, hyp]) => el('tr', {},
+    el('td', {}, label, unit ? el('span', { class: 'hyp' }, ` (${unit})`) : null),
+    options.map((o) => {
+      const runs = scenario.runs.filter((r) => r.option === o && r[key] !== undefined);
+      if (!runs.length) return el('td', { class: 'num' }, '—');
+      const values = runs.map((r) => Number(r[key]));
+      const cell = el('td', { class: 'num', title: runs.map((r) => r.runId).join('\n') }, fmt(median(values)));
+      if (runs.length > 1) cell.append(el('span', { class: 'range' }, `${fmt(Math.min(...values))} – ${fmt(Math.max(...values))}`));
+      return cell;
+    }),
+    el('td', { class: 'hyp' }, hyp)));
+  return el('div', { class: 'table-scroll' }, el('table', {}, el('thead', {}, head), el('tbody', {}, body)));
+}
+
+function viewResults() {
+  const d = DATA.deliverables.find((x) => x.tab === 'resultats');
+  const res = DATA.results;
+  const out = [el('div', { class: 'section-head' }, el('h2', {}, 'Résultats proposés'), d?.intro ? el('p', { class: 'lead', html: d.intro }) : null, d ? progress(d.items.map((i) => i.id)) : null)];
+  if (!res.source) { out.push(el('p', { class: 'lead' }, 'Aucun passage enregistré.')); return out; }
+  if (res.rehearsal) out.push(el('div', { class: 'banner', html: '<strong>Répétition générale, pas des preuves.</strong> Passages courts (durées × 0,25), une seule répétition. Ils servent à vérifier la chaîne de mesure et à discuter de la lecture des panneaux. Les chiffres de la décision viendront de la campagne complète (3 répétitions, durées réelles).' }));
+  for (const item of d?.items || []) {
+    const extra = [];
+    for (const sid of RES_SCENARIOS[item.id] || []) {
+      const sc = res.scenarios.find((s) => s.id === sid);
+      if (!sc) continue;
+      extra.push(el('h4', {}, `Scénario ${sid}`), resultTable(sc));
+      const gallery = el('div', { class: 'gallery' });
+      for (const o of ['A', 'B', 'C']) if (sc.shots[o]?.length) gallery.append(el('h4', {}, el('span', { class: `opt opt-${o}` }, `Option ${o}`)), shotGrid(sc.shots[o]));
+      extra.push(gallery);
+    }
+    out.push(scenarioCard({ ...item, shots: [] }, extra.length ? el('div', { class: 'gallery' }, extra) : el('p', { class: 'note' }, 'Pas encore joué.')));
+  }
+  out.push(el('p', { class: 'note' }, `Source : ${res.source}. Survolez une valeur pour voir le ou les passages d’où elle vient ; avec plusieurs répétitions, la médiane est affichée avec le min et le max.`));
+  return out;
+}
+
+function viewIntro() {
+  const total = DATA.deliverables.flatMap((d) => d.items).length;
+  return [
+    el('div', { class: 'section-head' }, el('h2', {}, 'Comment utiliser cette page'),
+      el('p', { class: 'lead', html: 'Chaque onglet correspond à un livrable de la PoC. Pour chaque scénario : lisez <strong>Comment faire</strong>, rejouez-le sur votre poste (ou lisez les captures), puis cochez <strong>OK</strong>, <strong>KO</strong> ou <strong>Bloqué</strong> avec un commentaire. Vos coches sont visibles de toute l’équipe. Idéalement, un scénario est rejoué par quelqu’un qui ne l’a pas construit.' })),
+    el('div', { class: 'table-scroll' }, el('table', {},
+      el('thead', {}, el('tr', {}, el('th', {}, 'Étape'), el('th', {}, 'Commande'))),
+      el('tbody', {},
+        [['Démarrer l’option A, B ou C', '<code>OPTION=B COMPOSE_PROFILES=B docker --context default compose up -d --build</code>'],
+         ['Tableau de bord Grafana', '<code>http://localhost:3300</code>'],
+         ['Passer une commande', '<code>curl -X POST localhost:3000/orders -H "Content-Type: application/json" -d @…</code> (voir le README)'],
+         ['Un passage court', '<code>DURATION_FACTOR=0.25 scripts/run.sh B S4</code>'],
+         ['Un passage de campagne', '<code>scripts/run.sh B S4 1</code>']]
+          .map(([a, b]) => el('tr', {}, el('td', {}, a), el('td', { html: b })))))),
+    el('p', { class: 'lead', html: `${total} scénarios de recette, ${DATA.decisions.length} décisions, ${DATA.hypotheses.length} hypothèses. Une version qui change les étapes ou l’attendu d’un scénario fait passer ses coches en « à revérifier ».` }),
+  ];
+}
+
+function zoom(shot) {
+  const dlg = document.getElementById('zoom');
+  document.getElementById('zoom-img').src = `img/${shot.file}`;
+  document.getElementById('zoom-img').alt = shot.legend;
+  document.getElementById('zoom-cap').textContent = shot.legend;
+  dlg.showModal();
+}
+document.getElementById('zoom-close').addEventListener('click', () => document.getElementById('zoom').close());
+document.getElementById('zoom').addEventListener('click', (e) => { if (e.target.id === 'zoom') e.target.close(); });
+
+function currentTab() {
+  const h = location.hash.slice(1);
+  return TABS.some((t) => t.id === h) ? h : 'prise-en-main';
+}
+
+function render() {
+  const tab = currentTab();
+  const scrollY = window.scrollY;
+  const tabs = document.getElementById('tabs');
+  tabs.replaceChildren(...TABS.map((t) => {
+    const d = DATA.deliverables.find((x) => x.tab === t.id);
+    const ids = d ? d.items.map((i) => i.id) : t.id === 'plan' ? [...DATA.decisions, ...DATA.requirements, ...DATA.hypotheses].map((x) => x.id) : [];
+    const done = ids.filter((id) => statusOf(id)).length;
+    return el('a', { href: `#${t.id}`, 'aria-current': t.id === tab ? 'page' : null }, t.label, ids.length ? el('span', { class: 'count' }, `${done}/${ids.length}`) : null);
+  }));
+  const view = document.getElementById('view');
+  const focused = document.activeElement?.id;
+  view.replaceChildren(...(tab === 'prise-en-main' ? viewIntro() : tab === 'plan' ? viewPlan() : tab === 'resultats' ? viewResults() : viewDeliverable(tab)));
+  if (focused) document.getElementById(focused)?.focus();
+  window.scrollTo(0, scrollY);
+}
+
+document.getElementById('meta').append(
+  el('span', {}, `Généré le ${new Date(DATA.generatedAt).toLocaleString('fr-CA', { dateStyle: 'long', timeStyle: 'short' })}`),
+  el('span', { class: 'mono' }, `commit ${DATA.commit}`),
+  el('span', {}, 'Tout est proposé : la décision appartient à l’équipe'));
+window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+render();
+connect();
+</script>

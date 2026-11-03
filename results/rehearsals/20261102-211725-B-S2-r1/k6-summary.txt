@@ -1,0 +1,7 @@
+
+PoC MGL870 — option B, scenario S2 (durations x0.25)
+  orders sent         : 54200  (380.8/s)
+  dropped by k6       : 49  (k6 had no free VU: the system was too slow)
+  VUs max             : 241
+  acceptance latency  : p50 11 ms · p95 228 ms · p99 364 ms · max 828 ms
+  unexpected responses: 0.00 %

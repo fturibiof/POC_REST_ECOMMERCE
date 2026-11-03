@@ -1,293 +1,178 @@
 /**
- * k6 Load Test — POC REST E-Commerce
+ * k6 load test — PoC MGL870, scenarios S1 to S5 (docs/poc-plan.md §4).
  *
- * Executor: ramping-arrival-rate — targets are expressed in req/s, not VUs.
- * k6 automatically scales VUs up to maxVUs to try to hit the target rate.
+ * Normally launched by scripts/run.sh, inside the compose network:
+ *   docker compose run --rm k6 run -e OPTION=A -e SCENARIO=S1 /scripts/k6-load-test.js
  *
- * Usage:
- *   k6 run load-test/k6-load-test.js
+ * Environment:
+ *   OPTION           A | B | C (changes the expected status codes only)
+ *   SCENARIO         S1 | S2 | S3 | S4 | S4b | S5-off | S5-on
+ *   DURATION_FACTOR  1 by default; 0.25 for a short rehearsal run (not for the campaign)
+ *   RUN_DIR          where to write k6-summary.json / k6-summary.txt
  *
- * With raw JSON output for post-processing:
- *   k6 run --out json=load-test/results/run-001.json load-test/k6-load-test.js
+ * Executor: ramping-arrival-rate — the target is a number of orders per
+ * second, whatever the response time (open model, like real customers).
+ * If the system slows down, k6 needs more VUs; when it runs out of them, the
+ * missing orders are counted in `dropped_iterations`.
  *
- * Override target URL at runtime:
- *   k6 run -e BASE_URL=http://192.168.1.10:3000 load-test/k6-load-test.js
- *
- * Scenario stages (total = 5 min / 300 s):
- *   0:00 – 0:30   Ramp   0 → 100 req/s   (warm-up)
- *   0:30 – 2:30   Hold      100 req/s     (normal load — 2 min)
- *   2:30 – 3:00   Ramp 100 → 500 req/s   (ramp to peak)
- *   3:00 – 4:30   Hold      500 req/s     (peak load   — 1.5 min)
- *   4:30 – 5:00   Ramp 500 →   0 req/s   (cool-down)
- *
- * VU sizing rationale:
- *   Each request takes ≥ 500 ms (artificial delays: 200+100+100+100).
- *   At 500 req/s that requires ≥ 500 × 0.5 = 250 concurrent VUs.
- *   We pre-allocate 300 and allow burst up to 600 to absorb queueing.
+ * Mix (same for every scenario): 80 % valid orders, 10 % declined cards,
+ * 10 % out-of-stock item.
  */
 
 import http from 'k6/http';
-import { check, group } from 'k6';
-import { Rate, Trend, Counter } from 'k6/metrics';
+import { check } from 'k6';
+import { Counter, Rate } from 'k6/metrics';
+
+const OPTION = (__ENV.OPTION || 'A').toUpperCase();
+const SCENARIO = __ENV.SCENARIO || 'S1';
+const FACTOR = Number(__ENV.DURATION_FACTOR || 1);
+const BASE_URL = __ENV.BASE_URL || 'http://order:3000';
+const SERVICE_URLS = { payment: 'http://payment:3001', shipping: 'http://shipping:3003' };
+const RUN_DIR = __ENV.RUN_DIR || '/results';
 
 // ---------------------------------------------------------------------------
-// Custom metrics
+// Profiles: [duration in s, target orders/s] — durations are scaled by FACTOR
 // ---------------------------------------------------------------------------
+const NOMINAL = 100;
+const PROFILES = {
+  S1: { stages: [[30, NOMINAL], [180, NOMINAL]] },
+  S2: {
+    stages: [
+      [10, 100], [50, 100], [10, 200], [50, 200], [10, 300], [50, 300],
+      [10, 400], [50, 400], [10, 500], [300, 500],
+    ],
+  },
+  S3: { stages: [[10, NOMINAL], [230, NOMINAL]], fault: { at: 60, target: 'payment', body: { delayMs: 2000, durationS: 120 } } },
+  S4: { stages: [[10, NOMINAL], [230, NOMINAL]], fault: { at: 60, target: 'payment', body: { down: true, durationS: 30 } } },
+  // Optional (H7): a secondary service is down — off the critical path in B and C.
+  S4b: { stages: [[10, NOMINAL], [230, NOMINAL]], fault: { at: 60, target: 'shipping', body: { down: true, durationS: 30 } } },
+  'S5-off': { stages: [[10, NOMINAL], [170, NOMINAL]] },
+  'S5-on': { stages: [[10, NOMINAL], [170, NOMINAL]] },
+};
 
-/** End-to-end latency as reported by the Order Service itself (latencyMs field) */
-const orderServiceLatency = new Trend('order_service_latency', true);
+const profile = PROFILES[SCENARIO];
+if (!profile) throw new Error(`Unknown SCENARIO ${SCENARIO}`);
+const scale = (seconds) => Math.max(1, Math.round(seconds * FACTOR));
 
-/** Only counts unintended errors — intentional 4xx are excluded */
-const errorRate = new Rate('error_rate');
+// The k6 scenario is named after the PoC scenario: k6 tags every metric with
+// `scenario=<k6 scenario name>`, which overrides a --tag scenario=... flag.
+const scenarios = {
+  [SCENARIO]: {
+    executor: 'ramping-arrival-rate',
+    exec: 'placeOrder',
+    startRate: 0,
+    timeUnit: '1s',
+    preAllocatedVUs: 200,
+    maxVUs: Number(__ENV.MAX_VUS || 2000), // high enough that k6 is not the bottleneck
+    stages: profile.stages.map(([duration, target]) => ({ duration: `${scale(duration)}s`, target })),
+  },
+};
+if (profile.fault) {
+  scenarios.fault = {
+    executor: 'shared-iterations',
+    exec: 'injectFault',
+    vus: 1,
+    iterations: 1,
+    startTime: `${scale(profile.fault.at)}s`,
+  };
+}
 
-/** Count of payment declines (intentional bad-card scenario) */
-const paymentDeclines = new Counter('payment_declines');
-
-/** Count of intentional inventory failures (bad-SKU scenario) */
-const inventoryFailures = new Counter('inventory_failures');
-
-/** Count of fully successful orders (201) */
-const successfulOrders = new Counter('successful_orders');
-
-/** Count of unintended stock-exhaustion errors (happy-path → 409) */
-const stockExhaustedErrors = new Counter('stock_exhausted_errors');
-
-// ---------------------------------------------------------------------------
-// Load profile — ramping-arrival-rate (req/s targets, 5 min total)
-// ---------------------------------------------------------------------------
 export const options = {
-  // Ask k6 to compute these percentiles so handleSummary can read them.
-  // By default k6 only computes p(90) and p(95).
+  scenarios,
   summaryTrendStats: ['min', 'avg', 'p(50)', 'p(90)', 'p(95)', 'p(99)', 'max'],
-
-  scenarios: {
-    order_load: {
-      executor:        'ramping-arrival-rate',
-      startRate:       0,           // req/s at t=0
-      timeUnit:        '1s',        // rate unit
-      preAllocatedVUs: 300,         // VUs ready from the start
-      maxVUs:          600,         // hard cap (k6 will warn if it needs more)
-      stages: [
-        { duration: '30s',  target: 100 },  // ramp  0 → 100 req/s  (warm-up)
-        { duration: '120s', target: 100 },  // hold    100 req/s     (normal — 2 min)
-        { duration: '30s',  target: 500 },  // ramp 100 → 500 req/s
-        { duration: '90s',  target: 500 },  // hold    500 req/s     (peak — 1.5 min)
-        { duration: '30s',  target: 0   },  // ramp 500 →   0 req/s  (cool-down)
-      ],
-    },
-  },
-
+  // Not pass/fail criteria (the analysis applies the thresholds of the PoC
+  // Plan): these always-true thresholds only make k6 compute the sub-metrics.
   thresholds: {
-    // k6 built-in HTTP duration — only evaluated on successful (2xx) happy-path
-    // requests via the tag filter, so intentional 4xx don't skew it.
-    'http_req_duration{group:::happy_path}':  ['p(95)<1500', 'p(99)<3000'],
-
-    // Order Service self-reported latency (excludes HTTP overhead)
-    'order_service_latency':                  ['p(95)<1500', 'p(99)<3000'],
-
-    // Unintended errors only (stock exhaustion, 5xx, network errors)
-    'error_rate':                             ['rate<0.05'],
+    'http_req_duration{name:POST /orders}': ['max>=0'],
+    'unexpected_responses{kind:valid}': ['rate>=0'],
   },
+  // Tags option / scenario / testid are added on the command line (run.sh),
+  // so every metric pushed to Prometheus can be filtered in Grafana.
 };
 
 // ---------------------------------------------------------------------------
-// Configuration
+// Metrics
 // ---------------------------------------------------------------------------
-const BASE_URL = __ENV.BASE_URL || 'http://localhost:3000';
+/** Response other than the expected one: 5xx, timeout, network error, wrong status. */
+const unexpected = new Rate('unexpected_responses');
+/** Orders sent, per kind (valid, declined_card, out_of_stock). */
+const sent = new Counter('orders_sent');
 
-// ---------------------------------------------------------------------------
-// In-memory stock mirrors services/inventory/index.js but scaled up
-// massively so stock never runs out during the load test.
-// The inventory service resets on restart — keep these numbers in sync
-// if you change the service. For load testing we use single-item orders
-// for each request to make stock math predictable.
-// ---------------------------------------------------------------------------
-const ITEMS = [
-  { itemId: 'ITEM-001', maxQty: 1 },
-  { itemId: 'ITEM-002', maxQty: 1 },
-  { itemId: 'ITEM-003', maxQty: 1 },
-  { itemId: 'ITEM-005', maxQty: 1 },  // Skip ITEM-004 — only 5 in stock
-];
-
-// A bad SKU used to provoke an inventory failure (item does not exist)
-const BAD_ITEM = { itemId: 'ITEM-999', quantity: 1 };
-
-// Good cards pass; a card ending in "0000" is declined by the payment service
-const GOOD_CARDS = [
-  '4111111111111111',
-  '5500005555555559',
-  '3714496353984312',
-  '6011111111111117',
-];
-const BAD_CARD = '4111111100000000';
+// Expected first response per kind: A and C answer with the outcome of the
+// critical path, B only acknowledges (the outcome comes later, by event).
+const SYNC_CODES = { valid: 201, declined_card: 402, out_of_stock: 409 };
+const EXPECTED = { A: SYNC_CODES, B: { valid: 202, declined_card: 202, out_of_stock: 202 }, C: SYNC_CODES }[OPTION];
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Payloads
 // ---------------------------------------------------------------------------
+const GOOD_CARDS = ['4111111111111111', '5500005555555559', '3714496353984312', '6011111111111117'];
+const DECLINED_CARD = '4111111100000000';
+const ITEMS = ['ITEM-001', 'ITEM-002', 'ITEM-003', 'ITEM-004', 'ITEM-005'];
+const OUT_OF_STOCK_ITEM = 'ITEM-006';
 
-function pick(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
+const pick = (list) => list[Math.floor(Math.random() * list.length)];
+const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-function randInt(min, max) {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-/** Single-item basket — keeps stock depletion predictable */
-function randomItems() {
-  const item = pick(ITEMS);
-  return [{ itemId: item.itemId, quantity: item.maxQty }];
-}
-
-function buildPayload({ badCard = false, badItem = false } = {}) {
+function payload(kind) {
   return JSON.stringify({
     customerId: `CUST-${randInt(1, 9999)}`,
-    items: badItem ? [BAD_ITEM] : randomItems(),
+    items: [{ itemId: kind === 'out_of_stock' ? OUT_OF_STOCK_ITEM : pick(ITEMS), quantity: 1 }],
     paymentInformation: {
-      cardNumber:  badCard ? BAD_CARD : pick(GOOD_CARDS),
+      cardNumber: kind === 'declined_card' ? DECLINED_CARD : pick(GOOD_CARDS),
       cardHolder: 'Test User',
       expiryDate: '12/29',
-      cvv:        '123',
+      cvv: '123',
     },
-    shippingAddress: {
-      street:  `${randInt(1, 999)} Test Ave`,
-      city:    'Springfield',
-      state:   'IL',
-      zipCode: '62701',
-      country: 'US',
-    },
+    shippingAddress: { street: `${randInt(1, 999)} Test Ave`, city: 'Montreal', state: 'QC', zipCode: 'H2X 1Y4', country: 'CA' },
   });
 }
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 
 // ---------------------------------------------------------------------------
-// Default function — one iteration per VU per arrival slot
-//
-// NOTE: No sleep() here. With ramping-arrival-rate the executor controls
-// *when* iterations start; sleep() inside the function only wastes VU
-// capacity without affecting the actual arrival rate.
+// Scenario functions
 // ---------------------------------------------------------------------------
-export default function () {
-  // Scenario weights:  80% happy path | 10% bad card | 10% bad item
+export function placeOrder() {
   const roll = Math.random();
+  const kind = roll < 0.8 ? 'valid' : roll < 0.9 ? 'declined_card' : 'out_of_stock';
 
-  if (roll < 0.80) {
-    // ── Happy path ────────────────────────────────────────────────────────
-    group('happy_path', () => {
-      const res = http.post(`${BASE_URL}/orders`, buildPayload(), { headers: JSON_HEADERS });
+  const res = http.post(`${BASE_URL}/orders`, payload(kind), {
+    headers: JSON_HEADERS,
+    timeout: '10s',
+    tags: { name: 'POST /orders', kind },
+  });
 
-      const ok = check(res, {
-        'status is 201':      (r) => r.status === 201,
-        'payment approved':   (r) => r.json('payment.approved') === true,
-        'inventory reserved': (r) => r.json('inventory.reserved') === true,
-        'has trackingNumber': (r) => r.json('shipping.trackingNumber') !== undefined,
-        'notification sent':  (r) => r.json('notification.sent') === true,
-      });
+  const ok = check(res, { [`${kind} -> ${EXPECTED[kind]}`]: (r) => r.status === EXPECTED[kind] }, { kind });
+  unexpected.add(!ok, { kind });
+  sent.add(1, { kind });
+}
 
-      if (res.status === 201) {
-        successfulOrders.add(1);
-        const latency = res.json('latencyMs');
-        if (latency) orderServiceLatency.add(latency);
-        errorRate.add(false);
-      } else if (res.status === 409) {
-        // Stock exhausted — an unintended failure we want to track separately
-        stockExhaustedErrors.add(1);
-        errorRate.add(true);
-      } else {
-        // Any other unexpected status (5xx, network error, etc.)
-        errorRate.add(true);
-      }
-    });
-
-  } else if (roll < 0.90) {
-    // ── Payment decline (intentional) ────────────────────────────────────
-    group('payment_decline', () => {
-      const res = http.post(`${BASE_URL}/orders`, buildPayload({ badCard: true }), { headers: JSON_HEADERS });
-
-      check(res, {
-        'status is 402':  (r) => r.status === 402,
-        'has reason':     (r) => r.json('reason') !== undefined,
-      });
-
-      paymentDeclines.add(1);
-      errorRate.add(false); // expected — not counted as a test failure
-    });
-
-  } else {
-    // ── Inventory failure / unknown SKU (intentional) ─────────────────────
-    group('inventory_failure', () => {
-      const res = http.post(`${BASE_URL}/orders`, buildPayload({ badItem: true }), { headers: JSON_HEADERS });
-
-      check(res, {
-        'status is 409':  (r) => r.status === 409,
-        'has reason':     (r) => r.json('reason') !== undefined,
-      });
-
-      inventoryFailures.add(1);
-      errorRate.add(false); // expected — not counted as a test failure
-    });
-  }
+/** S3 / S4 / S4b: one call to the fault injector of the target service, at the planned time. */
+export function injectFault() {
+  const body = { ...profile.fault.body, durationS: scale(profile.fault.body.durationS) };
+  const res = http.post(`${SERVICE_URLS[profile.fault.target]}/admin/fault`, JSON.stringify(body), { headers: JSON_HEADERS, tags: { name: 'fault' } });
+  check(res, { 'fault injected': (r) => r.status === 202 });
 }
 
 // ---------------------------------------------------------------------------
-// Summary hook — human-readable digest written to stdout + timestamped file
+// Summary: full JSON for scripts/report-run.mjs + short text for the console
 // ---------------------------------------------------------------------------
 export function handleSummary(data) {
   const m = data.metrics;
-
-  const fmt  = (v, unit = 'ms') => v !== undefined ? `${Math.round(v)}${unit}` : 'n/a';
-  const pct  = (v)              => v !== undefined ? `${(v * 100).toFixed(1)}%` : 'n/a';
-  const rate = (v)              => v !== undefined ? v.toFixed(2) : 'n/a';
-
-  // Percentile values live under the key names set in summaryTrendStats
-  const d  = m.http_req_duration?.values;
-  const ol = m.order_service_latency?.values;
-
-  const summary = `
-╔══════════════════════════════════════════════════════════════╗
-║           POC E-Commerce — k6 Load Test Summary              ║
-╚══════════════════════════════════════════════════════════════╝
-
-  Profile            : 0→100 req/s (warm-up 30s) → hold 100 req/s (2min)
-                       → ramp 100→500 req/s (30s) → hold 500 req/s (1.5min)
-                       → cool-down (30s)  |  Total: 5 min
-  Total iterations   : ${m.iterations?.values?.count         ?? 'n/a'}
-  VUs (peak)         : ${m.vus_max?.values?.max              ?? 'n/a'}
-
-── Throughput ─────────────────────────────────────────────────
-  Requests/sec       : ${rate(m.http_reqs?.values?.rate)} req/s
-  Successful orders  : ${m.successful_orders?.values?.count  ?? 0}
-  Payment declines   : ${m.payment_declines?.values?.count   ?? 0}  (intentional)
-  Inventory failures : ${m.inventory_failures?.values?.count ?? 0}  (intentional bad-SKU)
-  Stock exhausted    : ${m.stock_exhausted_errors?.values?.count ?? 0}  (unintended — restart services to reset)
-
-── Latency — all requests (http_req_duration) ─────────────────
-  min                : ${fmt(d?.min)}
-  avg                : ${fmt(d?.avg)}
-  p50                : ${fmt(d?.['p(50)'])}
-  p90                : ${fmt(d?.['p(90)'])}
-  p95                : ${fmt(d?.['p(95)'])}
-  p99                : ${fmt(d?.['p(99)'])}
-  max                : ${fmt(d?.max)}
-
-── Latency — happy-path only (order_service_latency, latencyMs) 
-  min                : ${fmt(ol?.min)}
-  avg                : ${fmt(ol?.avg)}
-  p50                : ${fmt(ol?.['p(50)'])}
-  p95                : ${fmt(ol?.['p(95)'])}
-  p99                : ${fmt(ol?.['p(99)'])}
-  max                : ${fmt(ol?.max)}
-
-── Error rates ────────────────────────────────────────────────
-  Unintended errors  : ${pct(m.error_rate?.values?.rate)}   (threshold: <5%)
-  Raw HTTP failures  : ${pct(m.http_req_failed?.values?.rate)}  (includes intentional 4xx)
-
+  const ms = (v) => (v === undefined ? 'n/a' : `${Math.round(v)} ms`);
+  const d = m['http_req_duration{name:POST /orders}']?.values || m.http_req_duration?.values || {};
+  const text = `
+PoC MGL870 — option ${OPTION}, scenario ${SCENARIO}${FACTOR !== 1 ? ` (durations x${FACTOR})` : ''}
+  orders sent         : ${m.orders_sent?.values.count ?? 0}  (${(m.orders_sent?.values.rate ?? 0).toFixed(1)}/s)
+  dropped by k6       : ${m.dropped_iterations?.values.count ?? 0}  (k6 had no free VU: the system was too slow)
+  VUs max             : ${m.vus_max?.values.max ?? 'n/a'}
+  acceptance latency  : p50 ${ms(d['p(50)'])} · p95 ${ms(d['p(95)'])} · p99 ${ms(d['p(99)'])} · max ${ms(d.max)}
+  unexpected responses: ${((m.unexpected_responses?.values.rate ?? 0) * 100).toFixed(2)} %
 `;
-
-  const filename = `load-test/results/summary-${Date.now()}.txt`;
   return {
-    stdout: summary,
-    [filename]: summary,
+    stdout: text,
+    [`${RUN_DIR}/k6-summary.json`]: JSON.stringify(data, null, 1),
+    [`${RUN_DIR}/k6-summary.txt`]: text,
   };
 }

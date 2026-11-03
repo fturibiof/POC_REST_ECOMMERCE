@@ -1,0 +1,8 @@
+node_modules
+results
+load-test
+docs
+infra
+scripts
+.git
+.claude

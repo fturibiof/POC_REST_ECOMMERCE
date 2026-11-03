@@ -1,0 +1,8 @@
+{
+  "runId": "20261102-211251-C-S1-r1", "option": "C", "scenario": "S1", "repetition": 1,
+  "durationFactor": 0.25, "idempotency": "on", "duplicateRate": 0,
+  "concurrency": 100, "traceSampling": 0.1,
+  "start": 1793671994, "loadEnd": 1793672048, "end": 1793672048,
+  "commit": "bdba9d2", "dirty": true,
+  "host": { "name": "marc-dev", "cpus": 12, "memGiB": 15 }
+}

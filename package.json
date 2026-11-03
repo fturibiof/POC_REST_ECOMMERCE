@@ -1,22 +1,26 @@
 {
   "name": "poc-rest-ecommerce",
   "version": "1.0.0",
-  "description": "POC e-commerce microservices communicating via REST",
+  "description": "PoC MGL870 — order processing: synchronous (A), event-driven (B) or hybrid (C)",
   "scripts": {
-    "start": "concurrently \"npm run start:notification\" \"npm run start:inventory\" \"npm run start:payment\" \"npm run start:shipping\" \"npm run start:order\"",
-    "start:order":        "node services/order/index.js",
-    "start:payment":      "node services/payment/index.js",
-    "start:inventory":    "node services/inventory/index.js",
-    "start:shipping":     "node services/shipping/index.js",
-    "start:notification": "node services/notification/index.js",
-    "load-test":          "k6 run load-test/k6-load-test.js",
-    "load-test:json":     "k6 run --out json=load-test/results/run.json load-test/k6-load-test.js"
+    "run": "scripts/run.sh",
+    "campaign": "scripts/campaign.sh",
+    "captures": "node scripts/captures.mjs",
+    "dashboard": "node scripts/build-dashboard.mjs",
+    "audit": "node scripts/audit.mjs"
   },
   "dependencies": {
+    "@opentelemetry/api": "1.9.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.57.2",
+    "@opentelemetry/instrumentation-express": "0.47.1",
+    "@opentelemetry/instrumentation-http": "0.57.2",
+    "@opentelemetry/sdk-node": "0.57.2",
+    "amqplib": "0.10.5",
     "axios": "^1.7.2",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "prom-client": "15.1.3"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "playwright": "1.61.1"
   }
 }

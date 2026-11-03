@@ -1,0 +1,92 @@
+{
+  "row": {
+    "runId": "20261102-210957-A-S1-r1",
+    "option": "A",
+    "scenario": "S1",
+    "repetition": 1,
+    "durationFactor": 0.25,
+    "commit": "bdba9d2",
+    "dirty": true,
+    "sent": 4899,
+    "dropped": 0,
+    "achievedRate": 90.7,
+    "accP50Ms": 562,
+    "accP95Ms": 747,
+    "accP99Ms": 1147,
+    "accMaxMs": 1341,
+    "unexpectedPct": 0,
+    "complP50S": 0.41,
+    "complP95S": 0.71,
+    "complP99S": 0.93,
+    "confirmed": 3903,
+    "rejected": 997,
+    "pending": 0,
+    "unfinished": 0,
+    "confirmedWithoutShipment": 0,
+    "rejectedShare": 0.203,
+    "drainS": 0,
+    "maxPending": 76,
+    "maxQueue": null,
+    "maxPaymentQueue": null,
+    "maxPoolQueued": 0,
+    "maxOrderConnections": 201,
+    "maxEventLoopLagMs": 222,
+    "cpuCoresAvg": 1.43,
+    "cpuCoresMax": 1.88,
+    "memMiBMax": 863,
+    "rabbitCpuAvg": null,
+    "rabbitMemMiB": 239,
+    "faultStart": null,
+    "faultEnd": null,
+    "accP95FaultMs": null,
+    "recoveryS": null,
+    "invariantViolations": 0,
+    "paidNotConfirmed": 0,
+    "duplicateEffects": 0,
+    "duplicatesInjected": 0,
+    "duplicatesIgnored": 0,
+    "idempotencyStoreMax": null,
+    "witnessTraceId": "629647ef2ba376301c407c75a40c642e"
+  },
+  "fault": null,
+  "saturation": {
+    "maxPending": 76,
+    "maxQueue": null,
+    "maxQueueByQueue": {},
+    "maxPoolQueued": 0,
+    "maxPoolInUse": 93,
+    "maxOrderConnections": 201,
+    "maxEventLoopLagS": 0.221511679
+  },
+  "resources": {
+    "cpuCoresAvg": 1.4336616070730193,
+    "cpuCoresMax": 1.879655872754452,
+    "memMiBMax": 862.90234375,
+    "cpuByService": {
+      "inventory": 0.19248984296985105,
+      "notification": 0.17599000359020367,
+      "order": 0.6475514463089668,
+      "payment": 0.2425956249705936,
+      "shipping": 0.17503468923340423
+    },
+    "memMiBByService": {
+      "inventory": 121,
+      "notification": 117,
+      "order": 140,
+      "payment": 131,
+      "rabbitmq": 239,
+      "shipping": 121
+    }
+  },
+  "events": {
+    "duplicatesInjected": 0,
+    "duplicatesIgnored": 0,
+    "idempotencyStoreMax": null,
+    "failed": 0
+  },
+  "completion": {
+    "complP50": 0.4071329146157959,
+    "complP95": 0.7142360547353805,
+    "complP99": 0.9281754932785614
+  }
+}

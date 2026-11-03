@@ -1,0 +1,52 @@
+{
+  "orders": {
+    "confirmed": 4781,
+    "rejected": 1169,
+    "pending": 0,
+    "unfinished": 0
+  },
+  "invariant": {
+    "confirmedWithoutPayment": {
+      "count": 0,
+      "sample": []
+    },
+    "confirmedWithoutStock": {
+      "count": 0,
+      "sample": []
+    }
+  },
+  "confirmedWithoutShipment": {
+    "count": 0,
+    "sample": []
+  },
+  "leftovers": {
+    "paidButNotConfirmed": {
+      "count": 0,
+      "sample": []
+    },
+    "stockHeldButNotConfirmed": {
+      "count": 0,
+      "sample": []
+    }
+  },
+  "duplicateEffects": {
+    "payments": {
+      "count": 0,
+      "sample": []
+    },
+    "reservations": {
+      "count": 0,
+      "sample": []
+    },
+    "shipments": {
+      "count": 0,
+      "sample": []
+    },
+    "notifications": {
+      "count": 0,
+      "sample": []
+    }
+  },
+  "invariantViolations": 0,
+  "duplicateEffectsTotal": 0
+}

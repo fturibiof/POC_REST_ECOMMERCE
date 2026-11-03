@@ -1,0 +1,1 @@
+{"orderId":"ORD-e6c28ad5-f33f-430a-b12f-be7d68987f77","status":"CONFIRMED","amount":999.99,"payment":{"approved":true,"transactionId":"TXN-71340b4b-b79f-4fdd-85f6-7ee9c606f922","amount":999.99},"inventory":{"reserved":true,"items":[{"itemId":"ITEM-001","name":"Laptop","quantity":1}]}}

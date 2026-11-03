@@ -1,68 +1,63 @@
 /**
  * Shipping Service — port 3003
  *
- * Simulates creating a shipment and returning a tracking number.
+ * Creates a shipment request and returns a tracking number (simulated: 100 ms).
  *
- * POST /shipments
- *   Body: { orderId, customerId, shippingAddress, items }
- *   Response: { shipmentId, trackingNumber, estimatedDelivery, carrier }
+ * Option A (REST)
+ *   POST /shipments  { orderId, customerId, shippingAddress, items } -> 201 | 503
+ *
+ * Option B (events)  InventoryReserved -> ShipmentRequested
+ * Option C (events)  OrderConfirmed    -> ShipmentRequested
+ *   (in C, payment and stock are settled synchronously; shipping follows)
+ *
+ * Fault injection (optional scenario S4b): POST /admin/fault — see common/runtime.js.
  */
 
-const express = require('express');
-const app = express();
-app.use(express.json());
+const { randomUUID } = require('node:crypto');
+const { OPTION, isEventDriven, createApp, tagOrder, Work, mountFaultInjector, Ledger, listen } = require('../common/runtime');
 
-const PORT = 3003;
+const SERVICE = 'shipping';
+const PORT = Number(process.env.PORT || 3003);
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const SIMULATED_DELAY_MS = 100;
+const app = createApp(SERVICE);
+const work = new Work(Number(process.env.WORK_DELAY_MS || 100));
+const ledger = new Ledger('shipments');
 
 const CARRIERS = ['FedEx', 'UPS', 'DHL', 'USPS'];
 
-// In-memory shipments
-const shipments = [];
-
-app.post('/shipments', async (req, res) => {
-  await sleep(SIMULATED_DELAY_MS);
-  const { orderId, customerId, shippingAddress, items } = req.body;
-
-  const carrier = CARRIERS[Math.floor(Math.random() * CARRIERS.length)];
-
-  // Estimate delivery: 3–7 business days from now
+async function createShipment(orderId) {
+  await work.run();
+  ledger.add('shipments', orderId);
   const deliveryDays = Math.floor(Math.random() * 5) + 3;
-  const estimatedDelivery = new Date(
-    Date.now() + deliveryDays * 24 * 60 * 60 * 1000
-  ).toISOString().split('T')[0];
-
-  const shipment = {
-    shipmentId: `SHIP-${Date.now()}`,
-    trackingNumber: `TRK${Math.random().toString(36).substring(2, 12).toUpperCase()}`,
-    orderId,
-    customerId,
-    shippingAddress,
-    items,
-    carrier,
-    estimatedDelivery,
-    createdAt: new Date().toISOString(),
+  return {
+    shipmentId: `SHIP-${randomUUID()}`,
+    trackingNumber: `TRK${randomUUID().replace(/-/g, '').slice(0, 10).toUpperCase()}`,
+    carrier: CARRIERS[Math.floor(Math.random() * CARRIERS.length)],
+    estimatedDelivery: new Date(Date.now() + deliveryDays * 86_400_000).toISOString().split('T')[0],
   };
+}
 
-  shipments.push(shipment);
-
-  console.log(
-    `[Shipping] Created shipment ${shipment.shipmentId} via ${carrier}, tracking: ${shipment.trackingNumber}`
-  );
-
-  res.status(201).json({
-    shipmentId: shipment.shipmentId,
-    trackingNumber: shipment.trackingNumber,
-    carrier: shipment.carrier,
-    estimatedDelivery: shipment.estimatedDelivery,
+async function startSync() {
+  const fault = mountFaultInjector(app, work);
+  app.post('/shipments', async (req, res) => {
+    tagOrder(req.body.orderId);
+    if (fault.down) return res.status(503).json({ reason: 'Shipping service unavailable (injected fault)' });
+    res.status(201).json(await createShipment(req.body.orderId));
   });
-});
+}
 
-// Health / debug
-app.get('/shipments', (_req, res) => res.json(shipments));
+async function startEvents() {
+  const { createBus } = require('../common/bus');
+  const bus = await createBus(SERVICE);
+  mountFaultInjector(app, work, { onDown: bus.pause, onUp: bus.resume });
 
-app.listen(PORT, () =>
-  console.log(`[Shipping Service] Listening on port ${PORT}`)
-);
+  const requestShipment = async (event) => {
+    const shipment = await createShipment(event.orderId);
+    await bus.publish('ShipmentRequested', { orderId: event.orderId, ...shipment });
+  };
+  await bus.subscribe(OPTION === 'B' ? { InventoryReserved: requestShipment } : { OrderConfirmed: requestShipment });
+}
+
+app.get('/audit', (_req, res) => res.json(ledger));
+
+(isEventDriven(SERVICE) ? startEvents() : startSync()).then(() => listen(app, PORT, SERVICE));
