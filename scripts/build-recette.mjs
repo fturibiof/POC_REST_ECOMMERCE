@@ -129,6 +129,8 @@ if (existsSync(CSV)) {
   const cols = header.split(',');
   const runs = lines.map((l) => Object.fromEntries(l.split(',').map((v, i) => [cols[i], v])));
   const order = ['S1', 'S2', 'S3', 'S4', 'S4b', 'S5-off', 'S5-on'];
+  // Breaking-point curve (S2-<rate>), by increasing rate.
+  order.push(...[...new Set(runs.map((r) => r.scenario).filter((sc) => /^S2-[0-9]+$/.test(sc)))].sort((x, y) => x.slice(3) - y.slice(3)));
   const byScenario = {};
   for (const r of runs) (byScenario[r.scenario] ||= []).push(r);
   results = {
@@ -137,7 +139,7 @@ if (existsSync(CSV)) {
     scenarios: order.filter((s) => byScenario[s]).map((s) => ({
       id: s,
       runs: byScenario[s].map((r) => Object.fromEntries(Object.entries(r).filter(([, v]) => v !== ''))),
-      shots: Object.fromEntries(['A', 'B', 'C'].map((o) => [o, shotsFor(`RES-${s}-${o}-`).map((f) => ({ file: f, legend: legends[f] || f }))])),
+      shots: Object.fromEntries(['A', 'A2', 'B', 'C'].map((o) => [o, shotsFor(`RES-${s}-${o}-`).map((f) => ({ file: f, legend: legends[f] || f }))])),
     })),
   };
 }

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # One measured run: one option, one scenario, one repetition.
 #
-#   scripts/run.sh <A|B|C> <S1|S2|S3|S4|S4b|S5-off|S5-on> [repetition]
+#   scripts/run.sh <A|A2|B|C> <S1|S2|S3|S4|S4b|S5-off|S5-on|S2-<rate>> [repetition]
+#   WORK_DISTRIBUTION=lognormal scripts/run.sh A S1  # simulated delays with a tail (same mean)
 #   DURATION_FACTOR=0.25 scripts/run.sh A S1     # short rehearsal (not for the campaign)
 #
 # Steps: restart the system under test from scratch -> k6 load (+ fault for
@@ -12,29 +13,33 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-OPTION=${1:?usage: run.sh <A|B|C> <scenario> [repetition]}
-SCENARIO=${2:?usage: run.sh <A|B|C> <scenario> [repetition]}
+OPTION=${1:?usage: run.sh <A|A2|B|C> <scenario> [repetition]}
+SCENARIO=${2:?usage: run.sh <A|A2|B|C> <scenario> [repetition]}
 REP=${3:-1}
 FACTOR=${DURATION_FACTOR:-1}
 DRAIN_TIMEOUT_S=${DRAIN_TIMEOUT_S:-300}
 export DOCKER_CONTEXT=${DOCKER_CONTEXT:-default}
 
 case "$SCENARIO" in
-  S1|S2|S3|S4|S4b) IDEMPOTENCY=on; DUPLICATE_RATE=0 ;;
+  S1|S2|S3|S4|S4b|S2-[0-9]*) IDEMPOTENCY=on; DUPLICATE_RATE=0 ;;
   S5-off)      IDEMPOTENCY=off; DUPLICATE_RATE=0.1 ;;
   S5-on)       IDEMPOTENCY=on;  DUPLICATE_RATE=0.1 ;;
   *) echo "unknown scenario $SCENARIO" >&2; exit 2 ;;
 esac
 if [[ $SCENARIO == S5-* && $OPTION != B ]]; then echo "S5 is defined for option B only" >&2; exit 2; fi
-export OPTION IDEMPOTENCY DUPLICATE_RATE
+WORK_DISTRIBUTION=${WORK_DISTRIBUTION:-constant}
+export OPTION IDEMPOTENCY DUPLICATE_RATE WORK_DISTRIBUTION
 
-RUN_ID="$(date +%Y%m%d-%H%M%S)-${OPTION}-${SCENARIO}-r${REP}"
+# A run with tailed delays is a different experiment: it never mixes with the others.
+RUN_ID="$(date +%Y%m%d-%H%M%S)-${OPTION}-${SCENARIO}$([[ $WORK_DISTRIBUTION == lognormal ]] && echo -ln)-r${REP}"
 # Short rehearsals never mix with campaign results.
 OUT_BASE=$([[ $FACTOR == 1 ]] && echo results/runs || echo results/rehearsals)
+# Sensitivity runs (tailed delays) have their own folder and CSV, never mixed with the campaign.
+[[ $FACTOR == 1 && $WORK_DISTRIBUTION == lognormal ]] && OUT_BASE=results/sensitivity
 OUT="$OUT_BASE/$RUN_ID"
 mkdir -p "$OUT"
 SUT=(order payment inventory shipping notification)
-[[ $OPTION != A ]] && SUT+=(rabbitmq) # B and C use the broker
+[[ $OPTION == B || $OPTION == C ]] && SUT+=(rabbitmq) # B and C use the broker
 compose() { COMPOSE_PROFILES=B docker compose "$@"; }
 now() { date +%s; }
 
@@ -90,7 +95,7 @@ node scripts/audit.mjs > "$OUT/audit.json"
 cat > "$OUT/run.json" <<EOF
 {
   "runId": "$RUN_ID", "option": "$OPTION", "scenario": "$SCENARIO", "repetition": $REP,
-  "durationFactor": $FACTOR, "idempotency": "$IDEMPOTENCY", "duplicateRate": $DUPLICATE_RATE,
+  "durationFactor": $FACTOR, "workDistribution": "$WORK_DISTRIBUTION", "idempotency": "$IDEMPOTENCY", "duplicateRate": $DUPLICATE_RATE,
   "concurrency": ${CONCURRENCY:-100}, "traceSampling": ${TRACE_SAMPLING:-0.1},
   "start": $START, "loadEnd": $LOAD_END, "end": $END,
   "commit": "$(git rev-parse --short HEAD)", "dirty": $([[ -n $(git status --porcelain services load-test compose.yml) ]] && echo true || echo false),

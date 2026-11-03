@@ -25,6 +25,9 @@ x-env: &env
   HTTP_POOL_SIZE: ${CONCURRENCY:-100}
   PREFETCH: ${CONCURRENCY:-100}
   DOWNSTREAM_TIMEOUT_MS: ${DOWNSTREAM_TIMEOUT_MS:-5000}
+  # Simulated delays: constant (campaign) or lognormal with the same mean (sensitivity).
+  WORK_DISTRIBUTION: ${WORK_DISTRIBUTION:-constant}
+  WORK_SIGMA: ${WORK_SIGMA:-0.8}
   # Scenario S5 (option B): duplicated events and idempotent consumers.
   DUPLICATE_RATE: ${DUPLICATE_RATE:-0}
   IDEMPOTENCY: ${IDEMPOTENCY:-on}

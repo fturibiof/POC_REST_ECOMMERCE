@@ -10,8 +10,10 @@ const express = require('express');
 const client = require('prom-client');
 const { trace } = require('@opentelemetry/api');
 
+// A2 = A' : option A with the standard defenses of a synchronous system
+// (circuit breaker, admission control, idempotent payment). Same transport as A.
 const OPTION = (process.env.OPTION || 'A').toUpperCase();
-if (!['A', 'B', 'C'].includes(OPTION)) throw new Error(`OPTION must be A, B or C, got ${OPTION}`);
+if (!['A', 'A2', 'B', 'C'].includes(OPTION)) throw new Error(`OPTION must be A, A2, B or C, got ${OPTION}`);
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -52,13 +54,29 @@ function tagOrder(orderId) {
 /**
  * Simulated work of a service (call to a payment provider, database...).
  * The delay can be changed at runtime by the fault injector (scenario S3).
+ *
+ * WORK_DISTRIBUTION=constant (default): every call takes exactly delayMs.
+ * WORK_DISTRIBUTION=lognormal: same MEAN delayMs (so the capacity of each
+ * service is unchanged), but with a tail, like a real provider. Queueing
+ * effects come from the tail, not the mean. WORK_SIGMA=0.8 gives, for a
+ * mean of 200 ms: p50 ≈ 145 ms, p99 ≈ 930 ms.
  */
+const WORK_DISTRIBUTION = process.env.WORK_DISTRIBUTION || 'constant';
+const WORK_SIGMA = Number(process.env.WORK_SIGMA || 0.8);
+if (!['constant', 'lognormal'].includes(WORK_DISTRIBUTION)) throw new Error(`WORK_DISTRIBUTION must be constant or lognormal`);
+
+/** Log-normal sample of the given mean (Box-Muller). */
+function lognormal(mean, sigma) {
+  const normal = Math.sqrt(-2 * Math.log(1 - Math.random())) * Math.cos(2 * Math.PI * Math.random());
+  return Math.exp(Math.log(mean) - (sigma * sigma) / 2 + sigma * normal);
+}
+
 class Work {
   constructor(defaultDelayMs) {
     this.delayMs = defaultDelayMs;
   }
   run() {
-    return sleep(this.delayMs);
+    return sleep(WORK_DISTRIBUTION === 'lognormal' ? lognormal(this.delayMs, WORK_SIGMA) : this.delayMs);
   }
 }
 

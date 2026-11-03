@@ -111,6 +111,10 @@ const resources = {
   memMiBMax: (await value(`max_over_time(sum(container_memory_working_set_bytes{${SVC}})[${whole}:5s])`, run.end)) / 2 ** 20,
   cpuByService,
   memMiBByService: Object.fromEntries(Object.entries(memByService).map(([k, v]) => [k, round(v / 2 ** 20)])),
+  // Load generator, on the same machine (limit of docs/poc-plan.md §6): if k6 sits
+  // at its CPU cap (compose.yml), the run measures k6 as much as the system.
+  k6CpuAvg: await value(`avg_over_time(sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service="k6"}[15s]))[${load}:5s])`, run.loadEnd),
+  k6CpuMax: await value(`max_over_time(sum(rate(container_cpu_usage_seconds_total{container_label_com_docker_compose_service="k6"}[15s]))[${load}:5s])`, run.loadEnd),
 };
 
 // ---------------------------------------------------------------------------
@@ -121,6 +125,8 @@ const events = {
   duplicatesIgnored: await value(`sum(increase(events_duplicates_ignored_total[${whole}])) or vector(0)`, run.end),
   idempotencyStoreMax: await value(`max_over_time(sum(idempotency_store_size)[${whole}:5s])`, run.end),
   failed: await value(`sum(increase(events_failed_total[${whole}])) or vector(0)`, run.end),
+  // Loss paths of B and C that the audit cannot see (no dead-letter queue, unknown orderId).
+  unknownOrder: await value(`sum(increase(events_unknown_order_total[${whole}])) or vector(0)`, run.end),
 };
 
 // ---------------------------------------------------------------------------
@@ -175,6 +181,10 @@ const row = {
   duplicatesIgnored: round(events.duplicatesIgnored),
   idempotencyStoreMax: round(events.idempotencyStoreMax),
   witnessTraceId: witness.traceId ?? null,
+  eventsFailed: round(events.failed),
+  unknownOrderEvents: round(events.unknownOrder),
+  k6CpuAvg: round(resources.k6CpuAvg, 2),
+  k6CpuMax: round(resources.k6CpuMax, 2),
 };
 
 writeFileSync(

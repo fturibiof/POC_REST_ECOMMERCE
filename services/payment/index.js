@@ -18,7 +18,7 @@
  */
 
 const { randomUUID } = require('node:crypto');
-const { isEventDriven, createApp, tagOrder, Work, mountFaultInjector, Ledger, listen } = require('../common/runtime');
+const { OPTION, isEventDriven, createApp, tagOrder, Work, mountFaultInjector, Ledger, listen } = require('../common/runtime');
 
 const SERVICE = 'payment';
 const PORT = Number(process.env.PORT || 3001);
@@ -27,8 +27,25 @@ const app = createApp(SERVICE);
 const work = new Work(Number(process.env.WORK_DELAY_MS || 200));
 const ledger = new Ledger('authorized', 'declined', 'refunded');
 
-async function authorize({ orderId, amount, paymentInformation }) {
+// Option A2 only: the order id is the idempotency key of the payment, like a
+// real provider's Idempotency-Key. A retried payment returns the first result
+// instead of charging twice, and a refund that arrives BEFORE the payment it
+// cancels (Order gave up on a timeout while Payment was still working) voids
+// it: the late authorization takes no money. A, B and C keep the plain behavior.
+const IDEMPOTENT = OPTION === 'A2';
+const results = new Map(); // orderId -> result of the first authorization
+const voided = new Set(); // orderIds refunded before being authorized
+
+async function authorize(request) {
+  if (!IDEMPOTENT) return authorizeOnce(request);
+  const { orderId } = request;
+  if (!results.has(orderId)) results.set(orderId, authorizeOnce(request));
+  return results.get(orderId);
+}
+
+async function authorizeOnce({ orderId, amount, paymentInformation }) {
   await work.run();
+  if (IDEMPOTENT && voided.has(orderId)) return { approved: false, reason: 'Payment voided: refunded before it was authorized' };
   const cardNumber = String(paymentInformation?.cardNumber || '');
   if (!cardNumber || cardNumber.endsWith('0000')) {
     ledger.add('declined', orderId);
@@ -39,6 +56,7 @@ async function authorize({ orderId, amount, paymentInformation }) {
 }
 
 function refund(orderId) {
+  if (IDEMPOTENT && !ledger.authorized.has(orderId)) return voided.add(orderId); // nothing taken yet
   ledger.add('refunded', orderId);
 }
 

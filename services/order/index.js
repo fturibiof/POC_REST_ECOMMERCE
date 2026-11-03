@@ -65,6 +65,9 @@ const completion = new client.Histogram({
   labelNames: ['outcome'],
   buckets: [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 5, 7.5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 300],
 });
+// B and C: an event whose orderId Order does not know (lost on a restart of
+// Order) is acknowledged and dropped. Counted so this loss path is visible.
+const unknownOrderEvents = new client.Counter({ name: 'events_unknown_order_total', help: 'Events ignored because their orderId is unknown to Order', labelNames: ['type'] });
 new client.Gauge({
   name: 'orders_pending',
   help: 'Orders whose workflow is not finished (in progress or waiting in a queue)',
@@ -178,7 +181,7 @@ function createRestClients(targets) {
     } catch (err) {
       const timedOut = err.code === 'ERR_CANCELED' || err.name === 'CanceledError';
       end({ status: timedOut ? 'timeout' : 'error' });
-      return { status: 503, data: { reason: `${target} ${timedOut ? 'timeout' : 'unreachable'}: ${err.message}` } };
+      return { status: 503, timedOut, data: { reason: `${target} ${timedOut ? 'timeout' : 'unreachable'}: ${err.message}` } };
     }
   }
 
@@ -191,13 +194,60 @@ function createRestClients(targets) {
 }
 
 /**
- * Critical path shared by A and C: payment, then stock (refund if the stock
- * cannot be reserved). Returns null on success, or the rejection to send.
+ * Circuit breaker on Payment (option A2): after FAILURES failed or slow calls
+ * in a row, stop calling Payment for OPEN_MS and refuse orders at once (fail
+ * EARLY instead of LATE); then let one probe call through (half-open).
+ * Parameters fixed a priori, not tuned on results:
+ *   slow call = longer than 1 s, the whole p95 acceptance budget (R3);
+ *   OPEN_MS = 5 s, the downstream timeout.
  */
-async function securePaymentAndStock(rest, order, paymentInformation) {
+function createBreaker() {
+  const FAILURES = Number(process.env.BREAKER_FAILURES || 10);
+  const SLOW_MS = Number(process.env.BREAKER_SLOW_MS || 1000);
+  const OPEN_MS = Number(process.env.BREAKER_OPEN_MS || 5000);
+  let consecutive = 0;
+  let openUntil = 0; // 0 = closed
+  let probing = false;
+  new client.Gauge({
+    name: 'circuit_breaker_open',
+    help: '1 while the breaker on Payment refuses orders (open or half-open)',
+    collect() { this.set(openUntil ? 1 : 0); },
+  });
+  return {
+    allow() {
+      if (!openUntil) return true;
+      if (Date.now() < openUntil || probing) return false;
+      probing = true; // half-open: this call is the probe
+      return true;
+    },
+    record(status, durationMs) {
+      const failed = status === 503 || durationMs > SLOW_MS;
+      if (!failed) {
+        consecutive = 0;
+        openUntil = 0;
+        probing = false;
+      } else if (probing || ++consecutive >= FAILURES) {
+        openUntil = Date.now() + OPEN_MS;
+        consecutive = 0;
+        probing = false;
+      }
+    },
+  };
+}
+
+/**
+ * Critical path shared by A, A2 and C: payment, then stock (refund if the stock
+ * cannot be reserved). Returns null on success, or the rejection to send.
+ * A2 passes its breaker and reconciles a payment timeout with a refund: Payment
+ * is idempotent in A2 and voids a payment refunded before it is authorized.
+ */
+async function securePaymentAndStock(rest, order, paymentInformation, breaker = null) {
   const { orderId, amount, items } = order;
 
+  const startedAt = Date.now();
   const payment = await rest.call('payment', '/payments', { orderId, amount, paymentInformation });
+  breaker?.record(payment.status, Date.now() - startedAt);
+  if (breaker && payment.timedOut) await rest.compensate('refund', 'payment', '/payments/refund', { orderId });
   if (payment.status !== 201) return { httpStatus: payment.status === 402 ? 402 : 503, reason: payment.data.reason };
   order.steps.payment = true;
   order.payment = payment.data;
@@ -219,17 +269,42 @@ function rejectNow(res, order, { httpStatus, reason }) {
 }
 
 // ---------------------------------------------------------------------------
-// Option A — synchronous orchestration
+// Option A — synchronous orchestration (A2: same, with defenses)
 // ---------------------------------------------------------------------------
 async function startSync() {
   const rest = createRestClients(['payment', 'inventory', 'shipping', 'notification']);
+  const breaker = OPTION === 'A2' ? createBreaker() : null;
+
+  // A2, admission control: at most MAX_IN_FLIGHT orders in progress; beyond,
+  // refuse at once (503) instead of queueing without bound. Little's law, a
+  // priori: Payment caps throughput at 100 sockets / 0.2 s = 500/s and a
+  // nominal A workflow takes ≈ 0.6 s, so 500 × 0.6 ≈ 300 orders in flight.
+  // A refused order is never recorded: it counts as not taken in charge.
+  const MAX_IN_FLIGHT = Number(process.env.MAX_IN_FLIGHT || 300);
+  const shed = new client.Counter({ name: 'orders_shed_total', help: 'A2: orders refused at the door (admission control or open breaker)', labelNames: ['reason'] });
+  let inFlight = 0;
 
   app.post('/orders', async (req, res) => {
     if (!validate(req.body)) return res.status(400).json({ error: 'Missing customerId, items, paymentInformation or shippingAddress' });
+    if (!breaker) return placeOrder(req, res);
+    const refusal = inFlight >= MAX_IN_FLIGHT ? 'admission' : !breaker.allow() ? 'circuit_open' : null;
+    if (refusal) {
+      shed.inc({ reason: refusal });
+      return res.status(503).json({ status: 'REFUSED', reason: refusal });
+    }
+    inFlight++;
+    try {
+      await placeOrder(req, res);
+    } finally {
+      inFlight--;
+    }
+  });
+
+  async function placeOrder(req, res) {
     const order = createOrder(req.body);
     const { orderId, customerId, items, shippingAddress } = order;
 
-    const rejection = await securePaymentAndStock(rest, order, req.body.paymentInformation);
+    const rejection = await securePaymentAndStock(rest, order, req.body.paymentInformation, breaker);
     if (rejection) return rejectNow(res, order, rejection);
 
     const shipping = await rest.call('shipping', '/shipments', { orderId, customerId, shippingAddress, items });
@@ -255,7 +330,7 @@ async function startSync() {
       shipping: shipping.data,
       notification: { sent: notification.status === 201 },
     });
-  });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -281,7 +356,8 @@ async function startEvents() {
 
   const withOrder = (handler) => async (event) => {
     const order = orders.get(event.orderId);
-    if (order) await handler(order, event);
+    if (!order) return unknownOrderEvents.inc({ type: event.type });
+    await handler(order, event);
   };
 
   // Confirm only when payment, stock AND shipment are known, whatever the
@@ -351,7 +427,7 @@ async function startHybrid() {
   await bus.subscribe({
     ShipmentRequested: async (event) => {
       const order = orders.get(event.orderId);
-      if (!order) return;
+      if (!order) return unknownOrderEvents.inc({ type: event.type });
       order.steps.shipment = true;
       finish(order);
     },
@@ -379,5 +455,5 @@ app.get('/audit', (_req, res) => {
   res.json(byStatus);
 });
 
-const start = { A: startSync, B: startEvents, C: startHybrid }[OPTION];
+const start = { A: startSync, A2: startSync, B: startEvents, C: startHybrid }[OPTION];
 start().then(() => listen(app, PORT, SERVICE));

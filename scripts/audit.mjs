@@ -60,5 +60,12 @@ const audit = {
 audit.invariantViolations =
   audit.invariant.confirmedWithoutPayment.count + audit.invariant.confirmedWithoutStock.count;
 audit.duplicateEffectsTotal = Object.values(audit.duplicateEffects).reduce((n, f) => n + f.count, 0);
+// Read before interpreting the counts above (the audit does not know the option).
+audit.notes = {
+  confirmedWithoutShipment:
+    "Pas une violation de l'invariant. A et B ne posent CONFIRMED qu'une fois l'expédition demandée ; " +
+    "C pose CONFIRMED dès que paiement et stock sont acquis (201), puis demande l'expédition par événement. " +
+    "En C, un nombre > 0 est légitime tant que Shipping est en panne ou que sa file n'est pas vidée (S4b).",
+};
 
 console.log(JSON.stringify(audit, null, 2));

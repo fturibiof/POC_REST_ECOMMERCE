@@ -5,8 +5,9 @@
  *   docker compose run --rm k6 run -e OPTION=A -e SCENARIO=S1 /scripts/k6-load-test.js
  *
  * Environment:
- *   OPTION           A | B | C (changes the expected status codes only)
+ *   OPTION           A | A2 | B | C (changes the expected status codes only)
  *   SCENARIO         S1 | S2 | S3 | S4 | S4b | S5-off | S5-on
+ *                    | S2-<rate> (breaking-point curve: one constant level, e.g. S2-250)
  *   DURATION_FACTOR  1 by default; 0.25 for a short rehearsal run (not for the campaign)
  *   RUN_DIR          where to write k6-summary.json / k6-summary.txt
  *
@@ -49,6 +50,11 @@ const PROFILES = {
   'S5-off': { stages: [[10, NOMINAL], [170, NOMINAL]] },
   'S5-on': { stages: [[10, NOMINAL], [170, NOMINAL]] },
 };
+
+// Breaking-point curve: S2-<rate> = 30 s ramp, then 3 min at that rate, each
+// level from a fresh system. Where an option falls, not just whether it does at 500/s.
+const level = /^S2-(\d+)$/.exec(SCENARIO);
+if (level) PROFILES[SCENARIO] = { stages: [[30, Number(level[1])], [180, Number(level[1])]] };
 
 const profile = PROFILES[SCENARIO];
 if (!profile) throw new Error(`Unknown SCENARIO ${SCENARIO}`);
@@ -101,7 +107,7 @@ const sent = new Counter('orders_sent');
 // Expected first response per kind: A and C answer with the outcome of the
 // critical path, B only acknowledges (the outcome comes later, by event).
 const SYNC_CODES = { valid: 201, declined_card: 402, out_of_stock: 409 };
-const EXPECTED = { A: SYNC_CODES, B: { valid: 202, declined_card: 202, out_of_stock: 202 }, C: SYNC_CODES }[OPTION];
+const EXPECTED = { A: SYNC_CODES, A2: SYNC_CODES, B: { valid: 202, declined_card: 202, out_of_stock: 202 }, C: SYNC_CODES }[OPTION];
 
 // ---------------------------------------------------------------------------
 // Payloads
