@@ -1,64 +1,108 @@
 /**
  * Payment Service — port 3001
  *
- * Simulates payment processing. Always succeeds unless the card number
- * ends in "0000" (to make failure testing easy).
+ * Authorizes the payment of an order (simulated provider: 200 ms).
+ * Cards ending in "0000" are declined. A payment is refunded when the order
+ * cannot be completed (compensation, keeps the business invariant).
  *
- * POST /payments
- *   Body: { orderId, amount, paymentInformation: { cardNumber, ... } }
- *   Response (success): { approved: true, transactionId, amount }
- *   Response (failure): 402 { approved: false, reason }
+ * Options A and C (REST: on the critical path in both)
+ *   POST /payments         { orderId, amount, paymentInformation } -> 201 | 402 | 503
+ *   POST /payments/refund  { orderId }                             -> 201 | 503
+ *
+ * Option B (events)
+ *   OrderCreated    -> PaymentAuthorized | PaymentFailed
+ *   InventoryFailed -> refund
+ *
+ * Fault injection (S3, S4): POST /admin/fault — see common/runtime.js.
+ * "Down" means 503 when called by REST (A, C) and "stop consuming" in B.
  */
 
-const express = require('express');
-const app = express();
-app.use(express.json());
+const { randomUUID } = require('node:crypto');
+const { OPTION, isEventDriven, createApp, tagOrder, Work, mountFaultInjector, Ledger, listen } = require('../common/runtime');
 
-const PORT = 3001;
+const SERVICE = 'payment';
+const PORT = Number(process.env.PORT || 3001);
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const SIMULATED_DELAY_MS = 200;
+const app = createApp(SERVICE);
+const work = new Work(Number(process.env.WORK_DELAY_MS || 200));
+const ledger = new Ledger('authorized', 'declined', 'refunded');
 
-// In-memory ledger
-const transactions = [];
+// Option A2 only: the order id is the idempotency key of the payment, like a
+// real provider's Idempotency-Key. A retried payment returns the first result
+// instead of charging twice, and a refund that arrives BEFORE the payment it
+// cancels (Order gave up on a timeout while Payment was still working) voids
+// it: the late authorization takes no money. A, B and C keep the plain behavior.
+const IDEMPOTENT = OPTION === 'A2';
+const results = new Map(); // orderId -> result of the first authorization
+const voided = new Set(); // orderIds refunded before being authorized
 
-app.post('/payments', async (req, res) => {
-  await sleep(SIMULATED_DELAY_MS);
-  const { orderId, amount, paymentInformation } = req.body;
-  const { cardNumber } = paymentInformation || {};
+async function authorize(request) {
+  if (!IDEMPOTENT) return authorizeOnce(request);
+  const { orderId } = request;
+  if (!results.has(orderId)) results.set(orderId, authorizeOnce(request));
+  return results.get(orderId);
+}
 
-  // Simulate decline: cards ending in "0000" are declined
-  if (!cardNumber || String(cardNumber).endsWith('0000')) {
-    console.log(`[Payment] DECLINED for order ${orderId}`);
-    return res.status(402).json({
-      approved: false,
-      reason: 'Card declined — simulated failure (card number ends in 0000)',
-    });
+async function authorizeOnce({ orderId, amount, paymentInformation }) {
+  await work.run();
+  if (IDEMPOTENT && voided.has(orderId)) return { approved: false, reason: 'Payment voided: refunded before it was authorized' };
+  const cardNumber = String(paymentInformation?.cardNumber || '');
+  if (!cardNumber || cardNumber.endsWith('0000')) {
+    ledger.add('declined', orderId);
+    return { approved: false, reason: 'Card declined (simulated: card number ends in 0000)' };
   }
+  ledger.add('authorized', orderId);
+  return { approved: true, transactionId: `TXN-${randomUUID()}`, amount };
+}
 
-  const transaction = {
-    transactionId: `TXN-${Date.now()}`,
-    orderId,
-    amount,
-    cardLast4: String(cardNumber).slice(-4),
-    approved: true,
-    processedAt: new Date().toISOString(),
-  };
-  transactions.push(transaction);
+function refund(orderId) {
+  if (IDEMPOTENT && !ledger.authorized.has(orderId)) return voided.add(orderId); // nothing taken yet
+  ledger.add('refunded', orderId);
+}
 
-  console.log(`[Payment] Approved ${transaction.transactionId} for order ${orderId}, amount: $${amount}`);
+async function startSync() {
+  const fault = mountFaultInjector(app, work);
+  const unavailable = (res) =>
+    res.status(503).json({ approved: false, reason: 'Payment service unavailable (injected fault)' });
 
-  res.status(201).json({
-    approved: true,
-    transactionId: transaction.transactionId,
-    amount: transaction.amount,
-    processedAt: transaction.processedAt,
+  app.post('/payments', async (req, res) => {
+    tagOrder(req.body.orderId);
+    if (fault.down) return unavailable(res);
+    const result = await authorize(req.body);
+    res.status(result.approved ? 201 : 402).json(result);
   });
-});
 
-// Health / debug
-app.get('/payments', (_req, res) => res.json(transactions));
+  app.post('/payments/refund', (req, res) => {
+    tagOrder(req.body.orderId);
+    if (fault.down) return unavailable(res);
+    refund(req.body.orderId);
+    res.status(201).json({ refunded: true });
+  });
+}
 
-app.listen(PORT, () =>
-  console.log(`[Payment Service] Listening on port ${PORT}`)
-);
+async function startEvents() {
+  const { createBus } = require('../common/bus');
+  const bus = await createBus(SERVICE);
+  mountFaultInjector(app, work, { onDown: bus.pause, onUp: bus.resume });
+
+  await bus.subscribe({
+    OrderCreated: async (event) => {
+      const result = await authorize(event);
+      if (result.approved) {
+        // The card data stops here: downstream events only carry the order.
+        await bus.publish('PaymentAuthorized', {
+          orderId: event.orderId,
+          transactionId: result.transactionId,
+          order: event.order,
+        });
+      } else {
+        await bus.publish('PaymentFailed', { orderId: event.orderId, reason: result.reason });
+      }
+    },
+    InventoryFailed: async (event) => refund(event.orderId),
+  });
+}
+
+app.get('/audit', (_req, res) => res.json(ledger));
+
+(isEventDriven(SERVICE) ? startEvents() : startSync()).then(() => listen(app, PORT, SERVICE));

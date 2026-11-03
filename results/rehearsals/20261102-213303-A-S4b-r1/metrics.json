@@ -1,0 +1,95 @@
+{
+  "row": {
+    "runId": "20261102-213303-A-S4b-r1",
+    "option": "A",
+    "scenario": "S4b",
+    "repetition": 1,
+    "durationFactor": 0.25,
+    "commit": "c5837c7",
+    "dirty": false,
+    "sent": 5949,
+    "dropped": 0,
+    "achievedRate": 94.4,
+    "accP50Ms": 566,
+    "accP95Ms": 784,
+    "accP99Ms": 950,
+    "accMaxMs": 1332,
+    "unexpectedPct": 10.52,
+    "complP50S": 0.41,
+    "complP95S": 0.71,
+    "complP99S": 0.83,
+    "confirmed": 4127,
+    "rejected": 1823,
+    "pending": 0,
+    "unfinished": 0,
+    "confirmedWithoutShipment": 0,
+    "rejectedShare": 0.306,
+    "drainS": 0,
+    "maxPending": 55,
+    "maxQueue": null,
+    "maxPaymentQueue": null,
+    "maxPoolQueued": 0,
+    "maxOrderConnections": 201,
+    "maxEventLoopLagMs": 169,
+    "cpuCoresAvg": 1.46,
+    "cpuCoresMax": 1.89,
+    "memMiBMax": 1146,
+    "rabbitCpuAvg": null,
+    "rabbitMemMiB": 281,
+    "faultStart": 1793673223,
+    "faultEnd": 1793673228,
+    "accP95FaultMs": 667,
+    "recoveryS": 5,
+    "invariantViolations": 0,
+    "paidNotConfirmed": 0,
+    "duplicateEffects": 0,
+    "duplicatesInjected": 0,
+    "duplicatesIgnored": 0,
+    "idempotencyStoreMax": null,
+    "witnessTraceId": "df1024f7be69e0b2de0bb3bf97a18a80"
+  },
+  "fault": {
+    "start": 1793673223,
+    "end": 1793673228
+  },
+  "saturation": {
+    "maxPending": 55,
+    "maxQueue": null,
+    "maxQueueByQueue": {},
+    "maxPoolQueued": 0,
+    "maxPoolInUse": 71,
+    "maxOrderConnections": 201,
+    "maxEventLoopLagS": 0.169082879
+  },
+  "resources": {
+    "cpuCoresAvg": 1.4617536989190265,
+    "cpuCoresMax": 1.8947090009993481,
+    "memMiBMax": 1145.97265625,
+    "cpuByService": {
+      "inventory": 0.17442669352668283,
+      "notification": 0.15509248320527316,
+      "order": 0.7310551061346909,
+      "payment": 0.22116715217853586,
+      "shipping": 0.18001226387384361
+    },
+    "memMiBByService": {
+      "inventory": 157,
+      "notification": 158,
+      "order": 217,
+      "payment": 176,
+      "shipping": 170,
+      "rabbitmq": 281
+    }
+  },
+  "events": {
+    "duplicatesInjected": 0,
+    "duplicatesIgnored": 0,
+    "idempotencyStoreMax": null,
+    "failed": 0
+  },
+  "completion": {
+    "complP50": 0.4120342470746732,
+    "complP95": 0.708443448068439,
+    "complP99": 0.8264077362924329
+  }
+}

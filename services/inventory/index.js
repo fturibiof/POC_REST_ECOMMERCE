@@ -1,86 +1,89 @@
 /**
  * Inventory Service — port 3002
  *
- * Simulates a stock database. Items start with a fixed quantity.
- * A reservation deducts from stock; if any item is out of stock the
- * whole request is rejected.
+ * Reserves stock for an order (simulated database: 100 ms). If any item is
+ * unknown or out of stock, the whole reservation is refused.
  *
- * POST /inventory/reserve
- *   Body: { orderId, items: [{ itemId, quantity }] }
- *   Response (success): { reserved: true, reservationId, items }
- *   Response (failure): 409 { reserved: false, reason }
+ * Options A and C (REST: on the critical path in both)
+ *   POST /inventory/reserve  { orderId, items: [{ itemId, quantity }] } -> 201 | 409
+ *   POST /inventory/release  { orderId, items }                         -> 201
+ *
+ * Option B (events)
+ *   PaymentAuthorized -> InventoryReserved | InventoryFailed
  */
 
-const express = require('express');
-const app = express();
-app.use(express.json());
+const { isEventDriven, createApp, tagOrder, Work, Ledger, listen } = require('../common/runtime');
 
-const PORT = 3002;
+const SERVICE = 'inventory';
+const PORT = Number(process.env.PORT || 3002);
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const SIMULATED_DELAY_MS = 100;
+const app = createApp(SERVICE);
+const work = new Work(Number(process.env.WORK_DELAY_MS || 100));
+const ledger = new Ledger('reserved', 'refused', 'released');
 
-// Simulated stock — keyed by itemId.
-// Quantities are set high enough to survive a full 5-min load test at
-// 500 req/s without exhaustion (real stock management is out of scope for POC).
+// Quantities high enough for a full campaign (stock management is out of
+// scope). ITEM-006 is always out of stock: the "insufficient stock" case.
 const stock = {
-  'ITEM-001': { name: 'Laptop',     quantity: 999_999 },
-  'ITEM-002': { name: 'Mouse',      quantity: 999_999 },
-  'ITEM-003': { name: 'Keyboard',   quantity: 999_999 },
-  'ITEM-004': { name: 'Monitor',    quantity: 999_999 },
-  'ITEM-005': { name: 'Headphones', quantity: 999_999 },
+  'ITEM-001': { name: 'Laptop', quantity: 999_999_999 },
+  'ITEM-002': { name: 'Mouse', quantity: 999_999_999 },
+  'ITEM-003': { name: 'Keyboard', quantity: 999_999_999 },
+  'ITEM-004': { name: 'Monitor', quantity: 999_999_999 },
+  'ITEM-005': { name: 'Headphones', quantity: 999_999_999 },
+  'ITEM-006': { name: 'Discontinued camera', quantity: 0 },
 };
 
-// In-memory list of active reservations
-const reservations = [];
-
-app.post('/inventory/reserve', async (req, res) => {
-  await sleep(SIMULATED_DELAY_MS);
-  const { orderId, items } = req.body;
-
-  // Validate every item exists and has enough stock
+async function reserve(orderId, items) {
+  await work.run();
+  // Check then deduct without any await in between: no concurrent
+  // reservation can slip in (Node runs this block atomically).
   for (const { itemId, quantity } of items) {
-    if (!stock[itemId]) {
-      return res.status(409).json({
-        reserved: false,
-        reason: `Item ${itemId} does not exist in inventory`,
-      });
-    }
-    if (stock[itemId].quantity < quantity) {
-      return res.status(409).json({
-        reserved: false,
-        reason: `Insufficient stock for ${itemId}: requested ${quantity}, available ${stock[itemId].quantity}`,
-      });
+    const available = stock[itemId]?.quantity ?? 0;
+    if (available < quantity) {
+      ledger.add('refused', orderId);
+      return { reserved: false, reason: `Insufficient stock for ${itemId}: requested ${quantity}, available ${available}` };
     }
   }
+  for (const { itemId, quantity } of items) stock[itemId].quantity -= quantity;
+  ledger.add('reserved', orderId);
+  return { reserved: true, items: items.map(({ itemId, quantity }) => ({ itemId, name: stock[itemId].name, quantity })) };
+}
 
-  // Deduct stock
-  const reservedItems = items.map(({ itemId, quantity }) => {
-    stock[itemId].quantity -= quantity;
-    return { itemId, name: stock[itemId].name, quantity, remainingStock: stock[itemId].quantity };
+function release(orderId, items) {
+  for (const { itemId, quantity } of items) if (stock[itemId]) stock[itemId].quantity += quantity;
+  ledger.add('released', orderId);
+}
+
+async function startSync() {
+  app.post('/inventory/reserve', async (req, res) => {
+    tagOrder(req.body.orderId);
+    const result = await reserve(req.body.orderId, req.body.items);
+    res.status(result.reserved ? 201 : 409).json(result);
   });
 
-  const reservation = {
-    reservationId: `RES-${Date.now()}`,
-    orderId,
-    items: reservedItems,
-    reservedAt: new Date().toISOString(),
-  };
-  reservations.push(reservation);
-
-  console.log(`[Inventory] Reserved items for order ${orderId}:`, reservedItems);
-
-  res.status(201).json({
-    reserved: true,
-    reservationId: reservation.reservationId,
-    items: reservedItems,
+  app.post('/inventory/release', (req, res) => {
+    tagOrder(req.body.orderId);
+    release(req.body.orderId, req.body.items);
+    res.status(201).json({ released: true });
   });
-});
+}
 
-// Health / debug
+async function startEvents() {
+  const { createBus } = require('../common/bus');
+  const bus = await createBus(SERVICE);
+
+  await bus.subscribe({
+    PaymentAuthorized: async (event) => {
+      const result = await reserve(event.orderId, event.order.items);
+      if (result.reserved) {
+        await bus.publish('InventoryReserved', { orderId: event.orderId, order: event.order });
+      } else {
+        await bus.publish('InventoryFailed', { orderId: event.orderId, reason: result.reason });
+      }
+    },
+  });
+}
+
+app.get('/audit', (_req, res) => res.json(ledger));
 app.get('/inventory/stock', (_req, res) => res.json(stock));
-app.get('/inventory/reservations', (_req, res) => res.json(reservations));
 
-app.listen(PORT, () =>
-  console.log(`[Inventory Service] Listening on port ${PORT}`)
-);
+(isEventDriven(SERVICE) ? startEvents() : startSync()).then(() => listen(app, PORT, SERVICE));

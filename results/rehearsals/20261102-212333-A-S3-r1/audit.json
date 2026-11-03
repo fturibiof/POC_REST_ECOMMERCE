@@ -1,0 +1,73 @@
+{
+  "orders": {
+    "confirmed": 3021,
+    "rejected": 2623,
+    "pending": 0,
+    "unfinished": 0
+  },
+  "invariant": {
+    "confirmedWithoutPayment": {
+      "count": 0,
+      "sample": []
+    },
+    "confirmedWithoutStock": {
+      "count": 0,
+      "sample": []
+    }
+  },
+  "confirmedWithoutShipment": {
+    "count": 0,
+    "sample": []
+  },
+  "leftovers": {
+    "paidButNotConfirmed": {
+      "count": 1715,
+      "sample": [
+        "ORD-cb251bc4-6129-4c68-a396-a7112e1f3867",
+        "ORD-85172c40-9f22-495c-974b-9950cb7055fe",
+        "ORD-decf31e0-63b8-4dfd-8488-98a60c283e7c",
+        "ORD-e4e0affa-4465-4402-8c91-2d17491c2b03",
+        "ORD-1b96c90f-e686-4eff-aa23-2ed5fdc2c624",
+        "ORD-09fc3eee-a5ef-4e95-a8f7-b2c3632b1ba0",
+        "ORD-b028f6d6-045f-48f4-a9b9-7574fc2cf4b3",
+        "ORD-499f60dd-31ce-4f8a-9114-f104beb705cf",
+        "ORD-b9f2f752-39f7-499e-afd7-0dfeb6a9069c",
+        "ORD-c79b45e0-d84e-463f-81ff-5d9980067eb1",
+        "ORD-51669ce2-61bd-491a-abc0-96377ccd2570",
+        "ORD-647cad1a-5f89-4a7c-9dcf-58a2a18ca09e",
+        "ORD-4476b1fc-20af-471a-999d-f63411fc75c6",
+        "ORD-264d0c72-0a08-4462-aa6a-8ec014965e25",
+        "ORD-3c601fa1-ba42-4b24-af5f-e4410b343e6d",
+        "ORD-60c458f0-1ca0-4845-bc68-2c7ef4c6d7ca",
+        "ORD-1a36ea9d-9685-49bf-9994-dabe36342ed5",
+        "ORD-f170b424-6e0c-494e-981d-47a86d3a60c6",
+        "ORD-f2a1fb41-2087-49db-9737-965b9b9fb990",
+        "ORD-d2261f65-ec1f-4a86-8ade-ac056161f0fa"
+      ]
+    },
+    "stockHeldButNotConfirmed": {
+      "count": 0,
+      "sample": []
+    }
+  },
+  "duplicateEffects": {
+    "payments": {
+      "count": 0,
+      "sample": []
+    },
+    "reservations": {
+      "count": 0,
+      "sample": []
+    },
+    "shipments": {
+      "count": 0,
+      "sample": []
+    },
+    "notifications": {
+      "count": 0,
+      "sample": []
+    }
+  },
+  "invariantViolations": 0,
+  "duplicateEffectsTotal": 0
+}

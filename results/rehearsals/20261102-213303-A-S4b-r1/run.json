@@ -1,0 +1,8 @@
+{
+  "runId": "20261102-213303-A-S4b-r1", "option": "A", "scenario": "S4b", "repetition": 1,
+  "durationFactor": 0.25, "idempotency": "on", "duplicateRate": 0,
+  "concurrency": 100, "traceSampling": 0.1,
+  "start": 1793673203, "loadEnd": 1793673266, "end": 1793673266,
+  "commit": "c5837c7", "dirty": false,
+  "host": { "name": "marc-dev", "cpus": 12, "memGiB": 15 }
+}

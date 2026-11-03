@@ -1,0 +1,136 @@
+{
+  "orders": {
+    "confirmed": 3629,
+    "rejected": 821,
+    "pending": 0,
+    "unfinished": 0
+  },
+  "invariant": {
+    "confirmedWithoutPayment": {
+      "count": 0,
+      "sample": []
+    },
+    "confirmedWithoutStock": {
+      "count": 0,
+      "sample": []
+    }
+  },
+  "confirmedWithoutShipment": {
+    "count": 0,
+    "sample": []
+  },
+  "leftovers": {
+    "paidButNotConfirmed": {
+      "count": 0,
+      "sample": []
+    },
+    "stockHeldButNotConfirmed": {
+      "count": 0,
+      "sample": []
+    }
+  },
+  "duplicateEffects": {
+    "payments": {
+      "count": 377,
+      "sample": [
+        "ORD-82afd7f0-da87-493e-96ab-6cf8635685b4",
+        "ORD-060f1aac-bad7-47d4-adce-0772a045ebc0",
+        "ORD-6efaf9b8-d400-417f-a21e-1caad5188b4a",
+        "ORD-da07efcc-8b1a-4c74-a00e-d483b0d9a60d",
+        "ORD-fa9651a3-7a2d-470f-8e42-4126290c2baf",
+        "ORD-993ee15b-f25f-4285-8daa-6b51075bc817",
+        "ORD-669419fc-9be4-421f-9a40-fbe741e4e6ce",
+        "ORD-f00ad520-cc80-419c-97fe-14ac398f2aae",
+        "ORD-d73bd0cb-f824-486c-b8dd-c97195c5fb0b",
+        "ORD-52199d12-b31c-430a-ad2b-a110d3344756",
+        "ORD-4dd850d8-de2c-4df3-9a87-9e7c9e0fb3b2",
+        "ORD-396f8b9f-15e5-4135-a64f-5c835dc6cfa3",
+        "ORD-d9867735-16a9-4ef8-9645-85155e2fc234",
+        "ORD-fe43142a-42ef-417c-85cf-7b84bd3fd247",
+        "ORD-e494f000-9d36-4de6-9e16-2f7f0e4416e6",
+        "ORD-fdf230b3-d13d-4a51-8f42-84d18ebf5ca6",
+        "ORD-faff6408-ca61-4f36-ab98-39b3c851ea86",
+        "ORD-acbc03aa-131d-4199-912b-d1307dd9ff5c",
+        "ORD-ff4eeb63-55d4-40e2-8153-094c24fe1a2a",
+        "ORD-84a3ef32-b343-41df-900e-42df35026262"
+      ]
+    },
+    "reservations": {
+      "count": 677,
+      "sample": [
+        "ORD-6c513ebd-528b-4704-a9f1-bdfcd921a92e",
+        "ORD-82afd7f0-da87-493e-96ab-6cf8635685b4",
+        "ORD-23a0e84b-8aff-4289-9613-2cbc8e62d63d",
+        "ORD-060f1aac-bad7-47d4-adce-0772a045ebc0",
+        "ORD-a0b443c0-8004-4f28-9473-2fde31431190",
+        "ORD-af62d891-cabe-4c38-9614-bed1424af81c",
+        "ORD-2b25832e-db74-4e6d-991e-ac490eb7527b",
+        "ORD-6efaf9b8-d400-417f-a21e-1caad5188b4a",
+        "ORD-3b721808-c2a3-469a-8256-b0f916a14061",
+        "ORD-5d03e80c-287b-4db2-ba26-9b6c76de11ae",
+        "ORD-da07efcc-8b1a-4c74-a00e-d483b0d9a60d",
+        "ORD-fa9651a3-7a2d-470f-8e42-4126290c2baf",
+        "ORD-2ca3826c-2e87-4c5e-badb-6a16bb7374c0",
+        "ORD-993ee15b-f25f-4285-8daa-6b51075bc817",
+        "ORD-92e6b6ed-2189-484a-82b0-416026015741",
+        "ORD-669419fc-9be4-421f-9a40-fbe741e4e6ce",
+        "ORD-f00ad520-cc80-419c-97fe-14ac398f2aae",
+        "ORD-696de23a-7bbb-423d-bfe2-8dcccc15f47b",
+        "ORD-1571d4bd-41d3-4506-a2e3-dc5220d833b0",
+        "ORD-d73bd0cb-f824-486c-b8dd-c97195c5fb0b"
+      ]
+    },
+    "shipments": {
+      "count": 967,
+      "sample": [
+        "ORD-74998adb-da96-4acd-a541-c98ff10ce767",
+        "ORD-6c513ebd-528b-4704-a9f1-bdfcd921a92e",
+        "ORD-82afd7f0-da87-493e-96ab-6cf8635685b4",
+        "ORD-23a0e84b-8aff-4289-9613-2cbc8e62d63d",
+        "ORD-060f1aac-bad7-47d4-adce-0772a045ebc0",
+        "ORD-a0b443c0-8004-4f28-9473-2fde31431190",
+        "ORD-9e90a525-2014-4ce0-8d07-b18bc87d4e21",
+        "ORD-5f38ab8f-5991-488f-a136-57b5048cae39",
+        "ORD-af62d891-cabe-4c38-9614-bed1424af81c",
+        "ORD-ab9fec9f-1d75-4d7e-aa20-6e4c93d30a3d",
+        "ORD-2b25832e-db74-4e6d-991e-ac490eb7527b",
+        "ORD-6fbcb3b8-69db-4cef-80ae-1b0f7c9c3f4a",
+        "ORD-70bb375a-f810-42c5-a278-37353192095a",
+        "ORD-49fa45b2-7e00-4850-8e20-b525d59d518b",
+        "ORD-d4c12be1-4f4e-45db-8fbe-3808cbe2e7c7",
+        "ORD-9580c274-9f18-4f87-85cb-132332c74824",
+        "ORD-6efaf9b8-d400-417f-a21e-1caad5188b4a",
+        "ORD-3b721808-c2a3-469a-8256-b0f916a14061",
+        "ORD-5d03e80c-287b-4db2-ba26-9b6c76de11ae",
+        "ORD-da07efcc-8b1a-4c74-a00e-d483b0d9a60d"
+      ]
+    },
+    "notifications": {
+      "count": 417,
+      "sample": [
+        "ORD-3d382f9c-4f00-4b5f-9c2b-8efe6a33da01",
+        "ORD-23a0e84b-8aff-4289-9613-2cbc8e62d63d",
+        "ORD-3317100a-e44c-41af-b606-bd7729ad2c7a",
+        "ORD-49fa45b2-7e00-4850-8e20-b525d59d518b",
+        "ORD-6efaf9b8-d400-417f-a21e-1caad5188b4a",
+        "ORD-da07efcc-8b1a-4c74-a00e-d483b0d9a60d",
+        "ORD-4e212aa6-f03c-4960-bc35-10fc2ecc1426",
+        "ORD-95a98b68-1210-4055-80e5-518636deec21",
+        "ORD-80ee9519-4a6c-4d44-9fe5-fb749088ae6b",
+        "ORD-5e347f35-5df6-4d13-b202-115bcbc6d19f",
+        "ORD-0c95604e-188b-4f12-81f5-55b7abf216f2",
+        "ORD-dc327541-d126-49bc-98cc-db3d7d20214a",
+        "ORD-c8db96af-0a49-4c72-9aa3-d996558db322",
+        "ORD-0a01a0d6-156c-4d48-873c-581f3661d3ed",
+        "ORD-8c5c91ed-3d5a-4f93-aa96-1030e73bea9c",
+        "ORD-9c199ddf-0e9a-43ec-9a8e-0f95d2616ac8",
+        "ORD-81bb2778-fa79-405b-affd-ad243da0a21c",
+        "ORD-acbc03aa-131d-4199-912b-d1307dd9ff5c",
+        "ORD-02d8c958-e7b7-411b-a93d-43656c894bd1",
+        "ORD-67e872f9-c127-4b46-9538-f240ca919ca8"
+      ]
+    }
+  },
+  "invariantViolations": 0,
+  "duplicateEffectsTotal": 2438
+}

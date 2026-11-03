@@ -1,0 +1,166 @@
+# PoC MGL870 — system under test (5 services, RabbitMQ for option B),
+# supervision (Prometheus, Tempo, Grafana, cAdvisor) and load generator (k6).
+#
+#   OPTION=A docker compose up -d                       # option A, synchronous
+#   OPTION=B COMPOSE_PROFILES=B docker compose up -d    # option B, with RabbitMQ
+#
+# scripts/run.sh does this for each measured run. Images and versions of the
+# supervision are the ones used by Docconnect.
+
+name: poc-ecommerce
+
+# Same image, limits and parameters for every service: A and B differ only
+# by OPTION (fairness rule, AGENTS.md).
+x-service: &service
+  image: poc-ecommerce-services:local
+  build: .
+  restart: "no"
+  cpus: 1
+  mem_limit: 512m
+  networks: [poc]
+
+x-env: &env
+  OPTION: ${OPTION:-A}
+  # Same concurrency towards each called service: HTTP pool (A) = prefetch (B).
+  HTTP_POOL_SIZE: ${CONCURRENCY:-100}
+  PREFETCH: ${CONCURRENCY:-100}
+  DOWNSTREAM_TIMEOUT_MS: ${DOWNSTREAM_TIMEOUT_MS:-5000}
+  # Simulated delays: constant (campaign) or lognormal with the same mean (sensitivity).
+  WORK_DISTRIBUTION: ${WORK_DISTRIBUTION:-constant}
+  WORK_SIGMA: ${WORK_SIGMA:-0.8}
+  # Scenario S5 (option B): duplicated events and idempotent consumers.
+  DUPLICATE_RATE: ${DUPLICATE_RATE:-0}
+  IDEMPOTENCY: ${IDEMPOTENCY:-on}
+  AMQP_URL: amqp://guest:guest@rabbitmq:5672
+  PAYMENT_URL: http://payment:3001
+  INVENTORY_URL: http://inventory:3002
+  SHIPPING_URL: http://shipping:3003
+  NOTIFICATION_URL: http://notification:3004
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://tempo:4318
+  OTEL_TRACES_SAMPLER: parentbased_traceidratio
+  OTEL_TRACES_SAMPLER_ARG: ${TRACE_SAMPLING:-0.1}
+
+services:
+  # --- System under test ----------------------------------------------------
+  order:
+    <<: *service
+    command: [node, --require, ./services/common/telemetry.js, services/order/index.js]
+    environment: { <<: *env, OTEL_SERVICE_NAME: order, PORT: "3000" }
+    ports: ["127.0.0.1:3000:3000"]
+    healthcheck: { test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"], interval: 2s, retries: 60 }
+
+  payment:
+    <<: *service
+    command: [node, --require, ./services/common/telemetry.js, services/payment/index.js]
+    environment: { <<: *env, OTEL_SERVICE_NAME: payment, PORT: "3001" }
+    ports: ["127.0.0.1:3001:3001"]
+    healthcheck: { test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"], interval: 2s, retries: 60 }
+
+  inventory:
+    <<: *service
+    command: [node, --require, ./services/common/telemetry.js, services/inventory/index.js]
+    environment: { <<: *env, OTEL_SERVICE_NAME: inventory, PORT: "3002" }
+    ports: ["127.0.0.1:3002:3002"]
+    healthcheck: { test: ["CMD", "wget", "-qO-", "http://localhost:3002/health"], interval: 2s, retries: 60 }
+
+  shipping:
+    <<: *service
+    command: [node, --require, ./services/common/telemetry.js, services/shipping/index.js]
+    environment: { <<: *env, OTEL_SERVICE_NAME: shipping, PORT: "3003" }
+    ports: ["127.0.0.1:3003:3003"]
+    healthcheck: { test: ["CMD", "wget", "-qO-", "http://localhost:3003/health"], interval: 2s, retries: 60 }
+
+  notification:
+    <<: *service
+    command: [node, --require, ./services/common/telemetry.js, services/notification/index.js]
+    environment: { <<: *env, OTEL_SERVICE_NAME: notification, PORT: "3004" }
+    ports: ["127.0.0.1:3004:3004"]
+    healthcheck: { test: ["CMD", "wget", "-qO-", "http://localhost:3004/health"], interval: 2s, retries: 60 }
+
+  # Option B only. Its CPU and memory count in the cost of option B (H4).
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    profiles: [B]
+    cpus: 2
+    mem_limit: 1g
+    volumes:
+      - ./infra/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+      - ./infra/rabbitmq/poc.conf:/etc/rabbitmq/conf.d/20-poc.conf:ro
+    ports: ["127.0.0.1:15672:15672"] # management UI (guest / guest)
+    healthcheck: { test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"], interval: 5s, retries: 30 }
+    networks: [poc]
+
+  # --- Supervision (not part of the measured system) -------------------------
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=60d
+      - --web.enable-remote-write-receiver # k6 pushes its metrics
+      - --enable-feature=native-histograms # k6 latency histograms
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports: ["127.0.0.1:9090:9090"]
+    networks: [poc]
+
+  tempo:
+    image: grafana/tempo:2.6.1
+    command: -config.file=/etc/tempo/tempo.yml
+    volumes:
+      - ./infra/tempo/tempo.yml:/etc/tempo/tempo.yml:ro
+      - tempo_data:/var/tempo
+    networks: [poc]
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=2s
+      - --store_container_labels=false
+      - --whitelisted_container_labels=com.docker.compose.service,com.docker.compose.project
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    networks: [poc]
+
+  grafana:
+    image: grafana/grafana:11.3.1
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true" # local PoC only
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/poc.json
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports: ["127.0.0.1:3300:3000"]
+    networks: [poc]
+
+  # --- Load generator: docker compose run --rm k6 run ... (see scripts/run.sh)
+  k6:
+    image: grafana/k6:0.54.0
+    profiles: [tools]
+    cpus: 2
+    mem_limit: 2g
+    environment:
+      K6_PROMETHEUS_RW_SERVER_URL: http://prometheus:9090/api/v1/write
+      K6_PROMETHEUS_RW_TREND_AS_NATIVE_HISTOGRAM: "true"
+      K6_PROMETHEUS_RW_PUSH_INTERVAL: 5s
+    volumes:
+      - ./load-test:/scripts:ro
+      - ./results:/results
+    networks: [poc]
+
+networks:
+  poc:
+
+volumes:
+  prometheus_data:
+  tempo_data:
+  grafana_data:

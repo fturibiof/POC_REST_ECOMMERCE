@@ -1,0 +1,469 @@
+<title>Recette PoC Commandes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a lab notebook — header with the run context, sticky tabs per deliverable,
+   one column of scenario cards, each with its "how to" and the team's marks. */
+:root {
+  --bg: #f4f6f8;
+  --surface: #ffffff;
+  --sunken: #eef1f4;
+  --ink: #18212b;
+  --muted: #5a6573;
+  --line: #d9dfe5;
+  --accent: #1d6a86;
+  --accent-soft: #e2eff4;
+  --opt-a: #b5621a;
+  --opt-b: #6448ad;
+  --opt-c: #1b8068;
+  --ok: #2c7a4b;
+  --ko: #b02a22;
+  --blocked: #9a6400;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --radius: 6px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161c; --surface: #19212a; --sunken: #141b22; --ink: #e4e9ee; --muted: #9aa6b3; --line: #2c3742;
+    --accent: #5fb3d1; --accent-soft: #1b3440; --opt-a: #e09552; --opt-b: #a48ff0; --opt-c: #4fc2a2;
+    --ok: #5cc287; --ko: #ef6f66; --blocked: #e0aa45; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161c; --surface: #19212a; --sunken: #141b22; --ink: #e4e9ee; --muted: #9aa6b3; --line: #2c3742;
+  --accent: #5fb3d1; --accent-soft: #1b3440; --opt-a: #e09552; --opt-b: #a48ff0; --opt-c: #4fc2a2;
+  --ok: #5cc287; --ko: #ef6f66; --blocked: #e0aa45; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--font-body); }
+code, .mono { font-family: var(--font-mono); font-size: 0.86em; }
+code { background: var(--sunken); padding: 0.1em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.25; margin: 0; }
+a { color: var(--accent); }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap { max-width: 1120px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+header.top { background: var(--surface); border-bottom: 1px solid var(--line); }
+header.top .wrap { padding-block: 20px 14px; display: grid; gap: 6px; }
+.eyebrow { font: 500 12px/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+header.top h1 { font-size: 26px; font-weight: 600; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--muted); font-size: 13px; }
+
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+nav.tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+nav.tabs .wrap { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: thin; }
+nav.tabs a { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 12px 10px; text-decoration: none; color: var(--muted); border-bottom: 2px solid transparent; font-weight: 500; font-size: 14px; white-space: nowrap; }
+nav.tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--accent); }
+.count { font: 500 11px/1 var(--font-mono); padding: 3px 6px; border-radius: 99px; background: var(--sunken); color: var(--muted); }
+
+main .wrap { padding-block: 24px 64px; display: grid; gap: 18px; }
+.lead { max-width: 75ch; color: var(--muted); }
+.lead strong { color: var(--ink); }
+.section-head { display: grid; gap: 8px; }
+.section-head h2 { font-size: 20px; font-weight: 600; }
+
+.progress { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 500 12px/1 var(--font-mono); padding: 5px 8px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
+.s-ok .dot, .dot.s-ok { background: var(--ok); }
+.s-ko .dot, .dot.s-ko { background: var(--ko); }
+.s-blocked .dot, .dot.s-blocked { background: var(--blocked); }
+
+.banner { border: 1px solid var(--line); border-left: 4px solid var(--blocked); background: var(--surface); padding: 12px 14px; border-radius: var(--radius); max-width: 90ch; }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 340px); }
+.card > .body { padding: 16px 18px; display: grid; gap: 10px; min-width: 0; align-content: start; }
+.card > .review { padding: 16px 18px; border-left: 1px solid var(--line); background: var(--sunken); display: grid; gap: 10px; align-content: start; min-width: 0; }
+@media (max-width: 760px) { .card { grid-template-columns: minmax(0, 1fr); } .card > .review { border-left: 0; border-top: 1px solid var(--line); } }
+.card-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.card-title .id { font: 600 14px/1 var(--font-mono); color: var(--accent); }
+.card-title h3 { font-size: 16px; font-weight: 600; }
+.tag { font: 500 11px/1 var(--font-mono); letter-spacing: 0.04em; color: var(--muted); border: 1px solid var(--line); padding: 3px 6px; border-radius: 4px; }
+dl.fields { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 6px 12px; margin: 0; }
+dl.fields dt { color: var(--muted); font-size: 13px; }
+dl.fields dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) { dl.fields { grid-template-columns: minmax(0, 1fr); } dl.fields dd { margin-bottom: 6px; } }
+
+.shots { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.shot { display: grid; gap: 4px; padding: 0; border: 1px solid var(--line); border-radius: 4px; background: var(--sunken); cursor: zoom-in; text-align: left; overflow: hidden; }
+.shot img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; }
+.shot span { font-size: 11px; color: var(--muted); padding: 2px 6px 6px; line-height: 1.35; }
+
+.review h4 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
+.choices { display: flex; gap: 6px; flex-wrap: wrap; }
+.choice { border: 1px solid var(--line); background: var(--surface); padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500; display: inline-flex; gap: 6px; align-items: center; }
+.choice[aria-pressed="true"].s-ok { border-color: var(--ok); color: var(--ok); }
+.choice[aria-pressed="true"].s-ko { border-color: var(--ko); color: var(--ko); }
+.choice[aria-pressed="true"].s-blocked { border-color: var(--blocked); color: var(--blocked); }
+.review textarea { width: 100%; min-height: 64px; resize: vertical; font: 14px/1.4 var(--font-body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 8px; }
+.save { justify-self: start; background: var(--accent); color: var(--surface); border: 0; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 13px; }
+.save:disabled { opacity: 0.5; cursor: default; }
+.note { font-size: 12px; color: var(--muted); }
+.marks { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.mark { display: grid; gap: 2px; font-size: 13px; }
+.mark .who { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-weight: 500; }
+.mark .when { color: var(--muted); font-weight: 400; font-size: 12px; }
+.mark .stale { color: var(--blocked); font-size: 12px; }
+.mark p { margin: 0; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.table-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th { font-weight: 600; color: var(--muted); font-size: 12px; background: var(--sunken); }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); white-space: nowrap; }
+td .range { display: block; color: var(--muted); font-size: 11px; }
+.opt { font: 600 12px/1 var(--font-mono); }
+.opt-A { color: var(--opt-a); } .opt-B { color: var(--opt-b); } .opt-C { color: var(--opt-c); }
+.hyp { color: var(--muted); font-size: 12px; }
+.gallery { display: grid; gap: 12px; }
+.gallery h4 { margin: 0; font-size: 13px; }
+
+dialog { border: 1px solid var(--line); border-radius: var(--radius); padding: 0; background: var(--surface); color: var(--ink); max-width: min(96vw, 1600px); }
+dialog::backdrop { background: rgb(0 0 0 / 0.6); }
+dialog img { display: block; max-width: 100%; max-height: 82vh; }
+dialog .cap { padding: 8px 12px; font-size: 13px; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+dialog button { border: 1px solid var(--line); background: var(--surface); padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+@media (prefers-reduced-motion: no-preference) { nav.tabs a, .choice { transition: color 120ms, border-color 120ms; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <span class="eyebrow">MGL870 · PoC 1 · revue d’équipe</span>
+    <h1>Synchrone, événementiel ou hybride ?</h1>
+    <div class="meta" id="meta"></div>
+  </div>
+</header>
+<nav class="tabs" aria-label="Livrables"><div class="wrap" id="tabs"></div></nav>
+<main><div class="wrap" id="view"></div></main>
+<dialog id="zoom"><img id="zoom-img" alt=""><div class="cap"><span id="zoom-cap"></span><button id="zoom-close" type="button">Fermer</button></div></dialog>
+
+<script>
+const DATA = /*__RECETTE_DATA__*/null;
+
+const STATUS = { ok: 'OK', ko: 'KO', blocked: 'Bloqué' };
+const TABS = [
+  { id: 'prise-en-main', label: 'Prise en main' },
+  { id: 'plan', label: 'Plan à valider' },
+  { id: 'socle', label: 'Socle' },
+  { id: 'option-a', label: 'Option A' },
+  { id: 'option-b', label: 'Option B' },
+  { id: 'option-c', label: 'Option C' },
+  { id: 'observabilite', label: 'Observabilité' },
+  { id: 'banc', label: 'Banc d’essai' },
+  { id: 'resultats', label: 'Résultats' },
+  { id: 'decision', label: 'Décision' },
+];
+
+// Metrics shown in the results tables: [csv column, label, unit, hypothesis]
+const METRICS = [
+  ['sent', 'Commandes envoyées', '', ''],
+  ['dropped', 'Non envoyées par k6', '', 'H1'],
+  ['achievedRate', 'Débit envoyé', '/s', 'H1'],
+  ['accP50Ms', 'Acceptation p50', 'ms', 'H1'],
+  ['accP95Ms', 'Acceptation p95', 'ms', 'H1 · R3 < 1000'],
+  ['accP99Ms', 'Acceptation p99', 'ms', 'H1'],
+  ['unexpectedPct', 'Réponses inattendues', '%', 'R2 < 1'],
+  ['complP95S', 'Complétion p95 (confirmées)', 's', 'H5'],
+  ['rejectedShare', 'Part des commandes rejetées', '', 'H2 · prévu ≈ 0,2'],
+  ['maxPending', 'Commandes en cours (max)', '', 'H1'],
+  ['maxQueue', 'Messages en file (max)', '', 'H2'],
+  ['maxPoolQueued', 'Attente d’une connexion du pool (max)', '', 'H4'],
+  ['maxOrderConnections', 'Connexions entrantes d’Order (max)', '', 'H4'],
+  ['accP95FaultMs', 'Acceptation p95 pendant la panne', 'ms', 'H2, H7'],
+  ['recoveryS', 'Retour à la normale après la panne', 's', 'H2'],
+  ['cpuCoresAvg', 'CPU moyen, broker compris', 'cœurs', 'H4, H7'],
+  ['rabbitCpuAvg', 'dont RabbitMQ', 'cœurs', 'H4'],
+  ['memMiBMax', 'Mémoire max', 'Mio', 'H4, H7'],
+  ['invariantViolations', 'Violations de l’invariant', '', 'H6 = 0'],
+  ['confirmedWithoutShipment', 'Confirmées sans expédition', '', 'H6 = 0'],
+  ['paidNotConfirmed', 'Payées sans être confirmées', '', 'H6 = 0'],
+  ['duplicateEffects', 'Effets en double', '', 'H3'],
+  ['duplicatesInjected', 'Doublons injectés', '', 'H3'],
+  ['duplicatesIgnored', 'Doublons ignorés', '', 'H3'],
+  ['idempotencyStoreMax', 'Registre d’idempotence (max)', 'ids', 'H3'],
+];
+const RES_SCENARIOS = { 'RES-S1': ['S1'], 'RES-S2': ['S2'], 'RES-S3': ['S3'], 'RES-S4': ['S4', 'S4b'], 'RES-S5': ['S5-off', 'S5-on'] };
+
+// ---------------------------------------------------------------------------
+// Shared marks (db capability); the page works read-only without it
+// ---------------------------------------------------------------------------
+const state = { marks: new Map(), db: null, user: null, me: null, names: {}, drafts: new Map(), loaded: false };
+const revOf = new Map();
+for (const d of DATA.deliverables) for (const it of d.items) revOf.set(it.id, it.rev);
+
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === undefined || v === null || v === false) continue;
+    if (k === 'html') node.innerHTML = v;
+    else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v === true ? '' : v);
+  }
+  for (const c of children.flat(Infinity)) if (c !== null && c !== undefined && c !== false) node.append(c);
+  return node;
+}
+
+function statusOf(itemId) {
+  const list = state.marks.get(itemId) || [];
+  const rev = revOf.get(itemId) ?? 1;
+  const current = list.filter((m) => (m.rev ?? 1) === rev);
+  if (current.some((m) => m.status === 'ko')) return 'ko';
+  if (current.some((m) => m.status === 'blocked')) return 'blocked';
+  if (current.some((m) => m.status === 'ok')) return 'ok';
+  return null;
+}
+
+async function connect() {
+  if (!window.claude?.use) return;
+  try {
+    const [db, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    state.db = db;
+    state.user = user;
+    if (user) state.me = await user.id();
+    if (!db) { render(); return; }
+    const timer = setTimeout(() => { state.loaded = true; render(); }, 10000);
+    db.collection('marks').onSnapshot(async (snap) => {
+      clearTimeout(timer);
+      state.marks = new Map();
+      for (const doc of snap.docs) {
+        const m = doc.data();
+        if (!m?.item) continue;
+        if (!state.marks.has(m.item)) state.marks.set(m.item, []);
+        state.marks.get(m.item).push(m);
+      }
+      for (const list of state.marks.values()) list.sort((a, b) => (b.at || 0) - (a.at || 0));
+      const ids = [...new Set(snap.docs.map((d) => d.data()?.by).filter(Boolean))];
+      if (user && ids.length) state.names = await user.profiles(ids);
+      state.loaded = true;
+      render();
+    }, () => { clearTimeout(timer); state.loaded = true; render(); });
+  } catch { render(); }
+}
+
+async function saveMark(itemId, rev) {
+  const draft = state.drafts.get(itemId);
+  if (!draft?.status || !state.db || !state.me) return;
+  draft.saving = true;
+  render();
+  try {
+    await state.db.collection('marks').doc(`${itemId}--${state.me}`).set({
+      item: itemId, rev, status: draft.status, comment: draft.comment || '', by: state.me, at: Date.now(),
+    });
+    state.drafts.delete(itemId);
+  } catch (e) {
+    draft.error = e?.code === 'permission_denied' || e?.code === 'not_granted'
+      ? 'Votre accès à cette page ne permet pas d’enregistrer.'
+      : 'Enregistrement impossible, réessayez.';
+  }
+  draft.saving = false;
+  render();
+}
+
+function reviewBox(itemId, rev) {
+  const box = el('div', { class: 'review' }, el('h4', {}, 'Revue de l’équipe'));
+  const draft = state.drafts.get(itemId) || {};
+  const canWrite = !!(state.db && state.me);
+  const choices = el('div', { class: 'choices', role: 'group', 'aria-label': `Résultat pour ${itemId}` });
+  for (const [key, label] of Object.entries(STATUS)) {
+    choices.append(el('button', {
+      type: 'button', class: `choice s-${key}`, 'aria-pressed': String(draft.status === key), disabled: !canWrite,
+      onclick: () => { state.drafts.set(itemId, { ...draft, status: key }); render(); },
+    }, el('span', { class: `dot s-${key}` }), label));
+  }
+  box.append(choices);
+  const area = el('textarea', { id: `c-${itemId}`, placeholder: 'Commentaire (facultatif) : ce qui manque, ce qui surprend, ce que vous contestez', disabled: !canWrite });
+  area.value = draft.comment || '';
+  area.addEventListener('input', () => { state.drafts.set(itemId, { ...(state.drafts.get(itemId) || {}), comment: area.value }); });
+  box.append(area);
+  box.append(el('button', { type: 'button', class: 'save', disabled: !canWrite || !draft.status || draft.saving, onclick: () => saveMark(itemId, rev) }, draft.saving ? 'Enregistrement…' : 'Enregistrer'));
+  if (draft.error) box.append(el('p', { class: 'note' }, draft.error));
+  if (!canWrite) box.append(el('p', { class: 'note' }, state.db === null && window.claude?.use
+    ? 'Connectez-vous à claude.ai pour cocher et commenter.'
+    : 'Les coches partagées fonctionnent dans la page publiée ; ici, lecture seule.'));
+
+  const list = state.marks.get(itemId) || [];
+  if (list.length) {
+    const ul = el('ul', { class: 'marks' });
+    for (const m of list) {
+      const name = state.names[m.by]?.name || (m.by === state.me ? 'Vous' : 'Un membre de l’équipe');
+      ul.append(el('li', { class: 'mark' },
+        el('span', { class: 'who' }, el('span', { class: `dot s-${m.status}` }), `${STATUS[m.status] || m.status} · ${name}`,
+          el('span', { class: 'when' }, new Date(m.at).toLocaleString('fr-CA', { dateStyle: 'short', timeStyle: 'short' }))),
+        (m.rev ?? 1) !== rev ? el('span', { class: 'stale' }, `à revérifier : coché sur la version ${m.rev ?? 1}`) : null,
+        m.comment ? el('p', {}, m.comment) : null));
+    }
+    box.append(ul);
+  } else if (state.loaded) {
+    box.append(el('p', { class: 'note' }, 'Pas encore rejoué.'));
+  }
+  return box;
+}
+
+// ---------------------------------------------------------------------------
+// Views
+// ---------------------------------------------------------------------------
+function shotGrid(shots) {
+  if (!shots?.length) return null;
+  return el('div', { class: 'shots' }, shots.map((s) =>
+    el('button', { type: 'button', class: 'shot', onclick: () => zoom(s) },
+      el('img', { src: `img/${s.file}`, alt: s.legend, loading: 'lazy' }), el('span', {}, s.legend.split(' — ')[0]))));
+}
+
+function progress(ids) {
+  const counts = { ok: 0, ko: 0, blocked: 0, none: 0 };
+  for (const id of ids) counts[statusOf(id) || 'none']++;
+  return el('div', { class: 'progress' },
+    el('span', { class: 'chip s-ok' }, el('span', { class: 'dot' }), `${counts.ok} OK`),
+    el('span', { class: 'chip s-ko' }, el('span', { class: 'dot' }), `${counts.ko} KO`),
+    el('span', { class: 'chip s-blocked' }, el('span', { class: 'dot' }), `${counts.blocked} bloqué`),
+    el('span', { class: 'chip' }, el('span', { class: 'dot' }), `${counts.none} à rejouer`));
+}
+
+function scenarioCard(item, extra) {
+  const title = item.expected.replace(/<[^>]+>/g, '').split(/[;.]/)[0];
+  return el('article', { class: 'card', id: item.id },
+    el('div', { class: 'body' },
+      el('div', { class: 'card-title' }, el('span', { class: 'id' }, item.id), el('h3', {}, title.length > 90 ? `${title.slice(0, 88)}…` : title),
+        item.objective ? el('span', { class: 'tag' }, item.objective) : null, item.rev > 1 ? el('span', { class: 'tag' }, `version ${item.rev}`) : null),
+      el('dl', { class: 'fields' },
+        item.how ? [el('dt', {}, 'Comment faire'), el('dd', { html: item.how })] : null,
+        el('dt', {}, 'Attendu'), el('dd', { html: item.expected })),
+      shotGrid(item.shots), extra || null),
+    reviewBox(item.id, item.rev));
+}
+
+function viewDeliverable(tab) {
+  const d = DATA.deliverables.find((x) => x.tab === tab);
+  if (!d) return [el('p', { class: 'lead' }, 'Rien à rejouer pour l’instant.')];
+  return [
+    el('div', { class: 'section-head' }, el('h2', {}, d.title), d.intro ? el('p', { class: 'lead', html: d.intro }) : null, progress(d.items.map((i) => i.id))),
+    ...d.items.map((it) => scenarioCard(it)),
+  ];
+}
+
+function viewPlan() {
+  const card = (id, title, fields) => el('article', { class: 'card', id },
+    el('div', { class: 'body' }, el('div', { class: 'card-title' }, el('span', { class: 'id' }, id), el('h3', { html: title })),
+      el('dl', { class: 'fields' }, fields.filter(([, v]) => v).map(([k, v]) => [el('dt', {}, k), el('dd', { html: v })]))),
+    reviewBox(id, 1));
+  for (const x of [...DATA.decisions, ...DATA.requirements, ...DATA.hypotheses]) revOf.set(x.id, 1);
+  return [
+    el('div', { class: 'section-head' }, el('h2', {}, 'Plan à valider avant la campagne'),
+      el('p', { class: 'lead', html: 'Tout ce qui suit est <strong>proposé</strong>. Cochez OK si vous êtes d’accord, KO avec un commentaire si vous contestez. Les seuils et hypothèses doivent être figés <strong>avant</strong> de voir les résultats de la campagne.' }),
+      progress([...DATA.decisions, ...DATA.requirements, ...DATA.hypotheses].map((x) => x.id))),
+    el('h3', {}, 'Décisions de conception'),
+    ...DATA.decisions.map((x) => card(x.id, x.text, [['Statut', x.status], ['Raison', x.why]])),
+    el('h3', {}, 'Exigences et seuils de succès'),
+    ...DATA.requirements.map((x) => card(x.id, x.text, [['Seuil', x.threshold]])),
+    el('h3', {}, 'Hypothèses'),
+    ...DATA.hypotheses.map((x) => card(x.id, x.text, [['Scénarios', x.scenarios], ['Métriques', x.metrics], ['Confirmée si', x.confirmed]])),
+  ];
+}
+
+const median = (xs) => { const s = [...xs].sort((a, b) => a - b); return s[Math.floor((s.length - 1) / 2)]; };
+const fmt = (v) => (Math.abs(v) >= 100 ? Math.round(v).toLocaleString('fr-CA') : Number(v.toFixed(2)).toLocaleString('fr-CA'));
+
+function resultTable(scenario) {
+  const options = ['A', 'B', 'C'].filter((o) => scenario.runs.some((r) => r.option === o));
+  const rows = METRICS.filter(([key]) => scenario.runs.some((r) => r[key] !== undefined));
+  const head = el('tr', {}, el('th', {}, 'Mesure'), options.map((o) => el('th', { class: 'num' }, el('span', { class: `opt opt-${o}` }, `Option ${o}`))), el('th', {}, 'Sert'));
+  const body = rows.map(([key, label, unit, hyp]) => el('tr', {},
+    el('td', {}, label, unit ? el('span', { class: 'hyp' }, ` (${unit})`) : null),
+    options.map((o) => {
+      const runs = scenario.runs.filter((r) => r.option === o && r[key] !== undefined);
+      if (!runs.length) return el('td', { class: 'num' }, '—');
+      const values = runs.map((r) => Number(r[key]));
+      const cell = el('td', { class: 'num', title: runs.map((r) => r.runId).join('\n') }, fmt(median(values)));
+      if (runs.length > 1) cell.append(el('span', { class: 'range' }, `${fmt(Math.min(...values))} – ${fmt(Math.max(...values))}`));
+      return cell;
+    }),
+    el('td', { class: 'hyp' }, hyp)));
+  return el('div', { class: 'table-scroll' }, el('table', {}, el('thead', {}, head), el('tbody', {}, body)));
+}
+
+function viewResults() {
+  const d = DATA.deliverables.find((x) => x.tab === 'resultats');
+  const res = DATA.results;
+  const out = [el('div', { class: 'section-head' }, el('h2', {}, 'Résultats proposés'), d?.intro ? el('p', { class: 'lead', html: d.intro }) : null, d ? progress(d.items.map((i) => i.id)) : null)];
+  if (!res.source) { out.push(el('p', { class: 'lead' }, 'Aucun passage enregistré.')); return out; }
+  if (res.rehearsal) out.push(el('div', { class: 'banner', html: '<strong>Répétition générale, pas des preuves.</strong> Passages courts (durées × 0,25), une seule répétition. Ils servent à vérifier la chaîne de mesure et à discuter de la lecture des panneaux. Les chiffres de la décision viendront de la campagne complète (3 répétitions, durées réelles).' }));
+  for (const item of d?.items || []) {
+    const extra = [];
+    for (const sid of RES_SCENARIOS[item.id] || []) {
+      const sc = res.scenarios.find((s) => s.id === sid);
+      if (!sc) continue;
+      extra.push(el('h4', {}, `Scénario ${sid}`), resultTable(sc));
+      const gallery = el('div', { class: 'gallery' });
+      for (const o of ['A', 'B', 'C']) if (sc.shots[o]?.length) gallery.append(el('h4', {}, el('span', { class: `opt opt-${o}` }, `Option ${o}`)), shotGrid(sc.shots[o]));
+      extra.push(gallery);
+    }
+    out.push(scenarioCard({ ...item, shots: [] }, extra.length ? el('div', { class: 'gallery' }, extra) : el('p', { class: 'note' }, 'Pas encore joué.')));
+  }
+  out.push(el('p', { class: 'note' }, `Source : ${res.source}. Survolez une valeur pour voir le ou les passages d’où elle vient ; avec plusieurs répétitions, la médiane est affichée avec le min et le max.`));
+  return out;
+}
+
+function viewIntro() {
+  const total = DATA.deliverables.flatMap((d) => d.items).length;
+  return [
+    el('div', { class: 'section-head' }, el('h2', {}, 'Comment utiliser cette page'),
+      el('p', { class: 'lead', html: 'Chaque onglet correspond à un livrable de la PoC. Pour chaque scénario : lisez <strong>Comment faire</strong>, rejouez-le sur votre poste (ou lisez les captures), puis cochez <strong>OK</strong>, <strong>KO</strong> ou <strong>Bloqué</strong> avec un commentaire. Vos coches sont visibles de toute l’équipe. Idéalement, un scénario est rejoué par quelqu’un qui ne l’a pas construit.' })),
+    el('div', { class: 'table-scroll' }, el('table', {},
+      el('thead', {}, el('tr', {}, el('th', {}, 'Étape'), el('th', {}, 'Commande'))),
+      el('tbody', {},
+        [['Démarrer l’option A, B ou C', '<code>OPTION=B COMPOSE_PROFILES=B docker --context default compose up -d --build</code>'],
+         ['Tableau de bord Grafana', '<code>http://localhost:3300</code>'],
+         ['Passer une commande', '<code>curl -X POST localhost:3000/orders -H "Content-Type: application/json" -d @…</code> (voir le README)'],
+         ['Un passage court', '<code>DURATION_FACTOR=0.25 scripts/run.sh B S4</code>'],
+         ['Un passage de campagne', '<code>scripts/run.sh B S4 1</code>']]
+          .map(([a, b]) => el('tr', {}, el('td', {}, a), el('td', { html: b })))))),
+    el('p', { class: 'lead', html: `${total} scénarios de recette, ${DATA.decisions.length} décisions, ${DATA.hypotheses.length} hypothèses. Une version qui change les étapes ou l’attendu d’un scénario fait passer ses coches en « à revérifier ».` }),
+  ];
+}
+
+function zoom(shot) {
+  const dlg = document.getElementById('zoom');
+  document.getElementById('zoom-img').src = `img/${shot.file}`;
+  document.getElementById('zoom-img').alt = shot.legend;
+  document.getElementById('zoom-cap').textContent = shot.legend;
+  dlg.showModal();
+}
+document.getElementById('zoom-close').addEventListener('click', () => document.getElementById('zoom').close());
+document.getElementById('zoom').addEventListener('click', (e) => { if (e.target.id === 'zoom') e.target.close(); });
+
+function currentTab() {
+  const h = location.hash.slice(1);
+  return TABS.some((t) => t.id === h) ? h : 'prise-en-main';
+}
+
+function render() {
+  const tab = currentTab();
+  const scrollY = window.scrollY;
+  const tabs = document.getElementById('tabs');
+  tabs.replaceChildren(...TABS.map((t) => {
+    const d = DATA.deliverables.find((x) => x.tab === t.id);
+    const ids = d ? d.items.map((i) => i.id) : t.id === 'plan' ? [...DATA.decisions, ...DATA.requirements, ...DATA.hypotheses].map((x) => x.id) : [];
+    const done = ids.filter((id) => statusOf(id)).length;
+    return el('a', { href: `#${t.id}`, 'aria-current': t.id === tab ? 'page' : null }, t.label, ids.length ? el('span', { class: 'count' }, `${done}/${ids.length}`) : null);
+  }));
+  const view = document.getElementById('view');
+  const focused = document.activeElement?.id;
+  view.replaceChildren(...(tab === 'prise-en-main' ? viewIntro() : tab === 'plan' ? viewPlan() : tab === 'resultats' ? viewResults() : viewDeliverable(tab)));
+  if (focused) document.getElementById(focused)?.focus();
+  window.scrollTo(0, scrollY);
+}
+
+document.getElementById('meta').append(
+  el('span', {}, `Généré le ${new Date(DATA.generatedAt).toLocaleString('fr-CA', { dateStyle: 'long', timeStyle: 'short' })}`),
+  el('span', { class: 'mono' }, `commit ${DATA.commit}`),
+  el('span', {}, 'Tout est proposé : la décision appartient à l’équipe'));
+window.addEventListener('hashchange', () => { render(); window.scrollTo(0, 0); });
+render();
+connect();
+</script>
